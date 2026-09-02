@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI News Explorer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#1a73e8",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#89fa9b",
+                    "primary": "#005bbf",
+                    "outline": "#727785",
+                    "background": "#f7f9ff",
+                    "surface-tint": "#005bc0",
+                    "secondary": "#005ac1",
+                    "tertiary-container": "#008939",
+                    "primary-fixed-dim": "#adc7ff",
+                    "secondary-container": "#4d8efe",
+                    "surface-container-highest": "#dfe3e8",
+                    "on-tertiary-fixed": "#002108",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed": "#d8e2ff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed-variant": "#005320",
+                    "primary-fixed": "#d8e2ff",
+                    "on-tertiary-container": "#ffffff",
+                    "surface-container-high": "#e5e8ee",
+                    "secondary-fixed-dim": "#adc6ff",
+                    "surface-container": "#ebeef4",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-background": "#181c20",
+                    "surface-bright": "#f7f9ff",
+                    "outline-variant": "#c1c6d6",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#00285c",
+                    "inverse-surface": "#2d3135",
+                    "on-primary-fixed": "#001a41",
+                    "on-primary-fixed-variant": "#004493",
+                    "surface-dim": "#d7dae0",
+                    "tertiary-fixed-dim": "#6ddd81",
+                    "inverse-primary": "#adc7ff",
+                    "tertiary": "#006d2c",
+                    "surface-container-low": "#f1f4fa",
+                    "surface": "#f7f9ff",
+                    "inverse-on-surface": "#eef1f7",
+                    "on-primary-container": "#ffffff",
+                    "on-secondary-fixed": "#001a41",
+                    "on-surface": "#181c20",
+                    "on-surface-variant": "#414754",
+                    "surface-variant": "#dfe3e8",
+                    "on-secondary-fixed-variant": "#004494"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "lg": "32px",
+                    "margin-mobile": "16px",
+                    "base": "4px",
+                    "sm": "16px",
+                    "xl": "48px",
+                    "margin-desktop": "64px",
+                    "xs": "8px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "title-md": ["Work Sans"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Work Sans"],
+                    "headline-xl": ["Work Sans"],
+                    "body-lg": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Work Sans"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .custom-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .custom-shadow-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); transition: all 0.2s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen text-on-surface font-body-md antialiased">
+<!-- TopNavBar -->
+<header class="bg-surface docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-sm md:px-margin-desktop py-xs max-w-[1440px] mx-auto border-b border-outline-variant/30">
+<div class="flex items-center gap-xs">
+<span class="text-title-md font-title-md tracking-tight text-on-background font-normal">
+  AI News 
+  <span class="font-bold"><span style="color:#4285F4">E</span><span style="color:#EA4335">x</span><span style="color:#FBBC04">p</span><span style="color:#4285F4">l</span><span style="color:#34A853">o</span><span style="color:#EA4335">r</span><span style="color:#FBBC04">e</span><span style="color:#4285F4">r</span></span>
+</span>
+</div>
+<div class="relative flex-1 max-w-2xl mx-lg" id="searchBarContainer">
+<div id="searchBarWrapper" class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 custom-shadow border border-white/40 focus-within:ring-2 focus-within:ring-primary-container/50 focus-within:border-primary-container transition-all">
+<button class="material-symbols-outlined text-on-surface-variant mr-2 select-none hover:text-primary transition-colors" data-icon="search" onclick="fetchDiscovery()" type="button">search</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." type="text"/>
+<button class="flex items-center justify-center p-1 hover:bg-surface-container-high rounded-full transition-colors ml-2" id="searchFilterBtn">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="arrow_drop_down">arrow_drop_down</span>
+</button>
+</div>
+<p id="search-warning" class="hidden text-red-500 text-sm mt-2">Please enter both a keyword and the quantity of news to search.</p>
+<div class="absolute top-full left-0 mt-2 w-full bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 hidden" id="filterDropdown" style="z-index: 10000;">
+<div class="grid grid-cols-2 gap-md">
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1">Secondary Keywords</label>
+<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text"/>
+</div>
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1">Exclude Words</label>
+<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text"/>
+</div>
+<div class="col-span-2 flex gap-md items-end">
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1">Date Range</label>
+<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." readonly>
+</div>
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1">Domain filter</label>
+<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Ej. .mx, .gob.mx, reforma.com">
+</div>
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1">Quantity</label>
+<input type="number" id="nqueriesInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" min="1" max="50" placeholder="Cantidad">
+</div>
+</div>
+<div class="col-span-2 flex justify-end gap-2 mt-2">
+<button class="px-4 py-2 text-primary font-medium hover:bg-primary-container/10 rounded-full transition-colors text-body-md" id="closeFilterBtn">Cancel</button>
+<button class="px-4 py-2 bg-primary-container text-on-primary font-medium rounded-full hover:bg-primary transition-colors text-body-md custom-shadow" id="applyFiltersBtn" onclick="fetchDiscovery()">Apply Filters</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2" id="actionButtons">
+<button id="exportExcelBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="exportAll()"><span class="material-symbols-outlined">output</span> Export</button>
+<button id="mapearBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="startStreamMapping()"><span class="material-symbols-outlined">map</span> Extraer Ubicaciones</button>
+<button class="p-2 hover:bg-surface-container-low transition-colors duration-200 rounded-full text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</header>
+
+<div class="status-box text-center py-2 bg-blue-50 text-blue-800 font-medium hidden" id="statusBox"></div>
+
+<nav class="bg-surface border-b border-outline-variant/30">
+<div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
+<button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2" onclick="switchTab('main')">
+<span class="text-body-md font-body-md">Main Search</span>
+</button>
+<button id="tab-analytics" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
+<span class="text-body-md font-body-md">Analytics &amp; Maps</span>
+</button>
+<button id="tab-docs" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
+<span class="text-body-md font-body-md">Technical Documentation</span>
+</button>
+<button id="tab-manual" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
+<span class="text-body-md font-body-md">User Manual</span>
+</button>
+</div>
+</nav>
+
+<main id="dashboard" class="max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-lg">
+    
+    <!-- TAB 1: MAIN SEARCH (News Feed) -->
+    <div id="view-main" class="flex flex-col gap-md">
+        <!-- Full-width Header -->
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1">News Summary</h1>
+            <p class="text-body-md text-on-surface-variant" id="news-summary-subtitle">No dates available</p>
+        </div>
+
+        <!-- 2-Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+            <!-- Left: Top Stories (2 most recent) -->
+            <div class="lg:col-span-8 flex flex-col gap-lg">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+                    <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2 mb-md">
+                        Recent News <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+                    </h2>
+                    <div id="articlesFeed" class="flex flex-col gap-md">
+                        <!-- Top 2 cards render here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Right: Full paginated feed + filters -->
+            <div class="lg:col-span-4 flex flex-col gap-lg">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col" style="max-height: 80vh;">
+                    <div class="p-md border-b border-outline-variant/20 flex items-center justify-between flex-shrink-0">
+                        <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2">
+                            Full Feed
+                        </h2>
+                        <div class="flex items-center gap-2 relative">
+                            <span id="feedPaginationInfo" class="text-label-md text-on-surface-variant"></span>
+                            <button id="feedFilterClearBtn" onclick="clearFeedFilters()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hidden" title="Clear filters">
+                                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                            </button>
+                            <button id="feedFilterToggleBtn" onclick="toggleFeedFilterPopover()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Filter feed">
+                                <span class="material-symbols-outlined text-[18px]">tune</span>
+                            </button>
+                            <!-- Filter Popover -->
+                            <div id="feedFilterPopover" class="hidden absolute right-0 top-full mt-2 w-72 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg z-50 p-md">
+                                <!-- Date Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">Date</p>
+                                    <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." readonly>
+                                </div>
+                                <!-- Source Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">Source</p>
+                                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                        <input type="checkbox" id="feedSourceSelectAll" onchange="feedSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
+                                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                    </label>
+                                    <div id="feedSourceCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                </div>
+                                <!-- State Filter — hidden until states exist -->
+                                <div id="feedStateFilterSection" class="hidden">
+                                    <div class="border-t border-outline-variant/10 pt-3 mb-3">
+                                        <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">State</p>
+                                        <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                            <input type="checkbox" id="feedStateSelectAll" onchange="feedSelectAll('State', this.checked)" class="w-3.5 h-3.5">
+                                            <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                        </label>
+                                        <div id="feedStateCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant/10">
+                                    <button onclick="clearFeedFilters()" class="px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors">Clear</button>
+                                    <button onclick="toggleFeedFilterPopover()" class="px-3 py-1 text-xs bg-primary-container text-on-primary rounded-full hover:bg-primary transition-colors">Done</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Scrollable list -->
+                    <div id="fullFeedList" class="flex-1 overflow-y-auto divide-y divide-outline-variant/10">
+                        <!-- paginated cards render here -->
+                    </div>
+                    <!-- Pagination controls -->
+                    <div class="flex items-center justify-between px-md py-sm border-t border-outline-variant/10 flex-shrink-0">
+                        <button id="feedPrevBtn" onclick="feedPageChange(-1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors">← Prev</button>
+                        <button id="feedNextBtn" onclick="feedPageChange(1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: ANALYTICS & MAPS -->
+    <div id="view-analytics" class="hidden flex flex-col gap-lg w-full">
+
+        <!-- Power BI-style Filter Toolbar -->
+        <div class="bg-surface-container-lowest rounded-xl border border-white/40 custom-shadow px-md py-sm flex flex-wrap items-center gap-3 w-full" style="position:relative; z-index:40;">
+            <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex-shrink-0">Filters</span>
+
+            <!-- Date filter dropdown -->
+            <div class="relative w-48">
+                <input type="text" id="analyticsDateFilter" class="w-full bg-surface-container border border-outline-variant/30 text-body-md text-on-surface rounded-full px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary-container cursor-pointer text-sm" placeholder="Select dates..." readonly>
+            </div>
+
+            <!-- States multi-select popover -->
+            <div class="relative" id="analyticsStateDropdownWrap">
+                <button onclick="toggleAnalyticsDropdown('State')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsStateTrigger">
+                    <span id="analyticsStateTriggerLabel">All States</span>
+                    <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
+                </button>
+                <div id="analyticsStateDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
+                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                        <input type="checkbox" id="analyticsStateSelectAll" onchange="analyticsSelectAll('State', this.checked)" class="w-3.5 h-3.5">
+                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                    </label>
+                    <div id="analyticsStateCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <!-- Sources multi-select popover -->
+            <div class="relative" id="analyticsSourceDropdownWrap">
+                <button onclick="toggleAnalyticsDropdown('Source')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsSourceTrigger">
+                    <span id="analyticsSourceTriggerLabel">All Sources</span>
+                    <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
+                </button>
+                <div id="analyticsSourceDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
+                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                        <input type="checkbox" id="analyticsSourceSelectAll" onchange="analyticsSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
+                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                    </label>
+                    <div id="analyticsSourceCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="flex-1"></div>
+
+            <!-- Reset Filters -->
+            <button onclick="resetAnalyticsFilters()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-on-surface-variant hover:text-primary border border-outline-variant/30 rounded-full hover:border-primary-container transition-colors">
+                <span class="material-symbols-outlined text-[16px]">filter_alt_off</span>
+                Reset Filters
+            </button>
+        </div>
+
+        <!-- Map + KPI Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch w-full">
+            <!-- Map (left, 8/12) -->
+            <div class="lg:col-span-8 bg-white/90 backdrop-blur-md rounded-xl shadow-sm overflow-hidden relative w-full" id="mapWrapper" style="height: 480px; isolation: isolate;">
+                <div id="map" class="w-full h-full" style="z-index: 1;"></div>
+                <!-- Center map button -->
+                <button onclick="centerMap()" title="Center map" style="position:absolute; top:12px; right:12px; z-index:500;" class="flex items-center gap-1.5 bg-surface-container-lowest border border-outline-variant/30 text-primary rounded-full px-3 py-1.5 text-xs font-medium hover:bg-surface-container custom-shadow transition-colors">
+                    <span class="material-symbols-outlined text-[15px]">my_location</span>
+                    Center
+                </button>
+            </div>
+
+            <!-- KPI Column (right, 4/12) — single vertical stack -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#4285F4]">
+                    <div class="text-4xl font-bold text-primary mb-1" id="kpiTotal">0</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Articles</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#EA4335]">
+                    <div class="text-4xl font-bold text-primary mb-1" id="kpiCoverage">0</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Locations</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#FBBC04]">
+                    <div class="text-2xl font-bold text-primary mb-1 text-center leading-tight" id="kpiEpicenter">—</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Epicenter</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#34A853]">
+                    <div class="text-xl font-bold text-primary mb-1 text-center leading-tight line-clamp-2" id="kpiTopSource">—</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Top Source</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+            <div id="sourceCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold">Sources</h3>
+                    <button onclick="downloadChartCard('sourceCard', 'chart_sources.png')" title="Download Sources Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="sourcesBarCanvas"></canvas>
+                </div>
+            </div>
+            <div id="statesCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold">States</h3>
+                    <button onclick="downloadChartCard('statesCard', 'chart_states.png')" title="Download States Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="statesBarCanvas"></canvas>
+                </div>
+            </div>
+            <div id="timelineCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold">Timeline</h3>
+                    <button onclick="downloadChartCard('timelineCard', 'chart_timeline.png')" title="Download Timeline Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="timelineCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- TAB 3: TECHNICAL DOCUMENTATION -->
+    <div id="view-docs" class="hidden flex flex-col gap-lg">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <h2 class="text-title-md font-title-md text-primary-container mb-md">Technical Documentation</h2>
+            <div class="text-body-md text-on-surface-variant">Content for Technical Documentation will be displayed here.</div>
+        </div>
+    </div>
+    
+    <!-- TAB 4: USER MANUAL -->
+    <div id="view-manual" class="hidden flex flex-col gap-lg">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <h2 class="text-title-md font-title-md text-primary-container mb-md">User Manual</h2>
+            <div class="text-body-md text-on-surface-variant">Content for User Manual will be displayed here.</div>
+        </div>
+    </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>const statesData = {{ states_data | tojson }};</script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+</body>
+</html>

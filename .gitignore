@@ -1,0 +1,20 @@
+# Bases de datos y logs
+
+
+debug_scraping.txt
+
+# Seguridad y binarios
+__pycache__/
+
+
+# Archivos de backend (Bloqueados temporalmente para enfocar el agente en la UI)
+.env
+__pycache__/
+venv/
+logs/
+news_images/
+stitch/
+cache.db
+
+
+
