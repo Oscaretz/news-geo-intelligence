@@ -1,19 +1,21 @@
 // static/js/api.js — Handles fetch, EventSource, and file downloads
 
 function buildQueryString() {
-    const query = document.getElementById('mainSearchInput')?.value ?? document.getElementById('queryInput')?.value ?? '';
-    const qoption = document.getElementById('secondaryInput')?.value ?? document.getElementById('qoptionInput')?.value ?? '';
-    const qexception = document.getElementById('excludeInput')?.value ?? document.getElementById('qexceptionInput')?.value ?? '';
-    const qsite = document.getElementById('domainInput')?.value ?? document.getElementById('qsiteInput')?.value ?? '';
+    const query = document.getElementById('mainSearchInput')?.value ?? '';
+    const qoption = document.getElementById('secondaryInput')?.value ?? '';
+    const qexception = document.getElementById('excludeInput')?.value ?? '';
+    const qsite = document.getElementById('domainInput')?.value ?? '';
     const qrangedate = document.getElementById('dateRange')?.value ?? '';
     const nqueries = document.getElementById('nqueriesInput')?.value ?? '';
+    const country = document.querySelector('input[name="countryToggle"]:checked')?.value ?? '';
 
     return `?query=${encodeURIComponent(query.trim())}` +
            `&qoption=${encodeURIComponent(qoption.trim())}` +
            `&qexception=${encodeURIComponent(qexception.trim())}` +
            `&qsite=${encodeURIComponent(qsite.trim())}` +
            `&qrangedate=${encodeURIComponent(qrangedate.trim())}` +
-           `&nqueries=${encodeURIComponent(nqueries.trim())}`;
+           `&nqueries=${encodeURIComponent(nqueries.trim())}` +
+           `&country=${encodeURIComponent(country.trim())}`;
 }
 
 // ============================================
@@ -25,6 +27,8 @@ async function fetchDiscovery() {
     const nqueriesInput = document.getElementById('nqueriesInput');
     const warningEl = document.getElementById('search-warning');
     const searchBarWrapper = document.getElementById('searchBarWrapper') || mainInput?.parentElement;
+    const countryControl = document.getElementById('countrySegmentedControl');
+    const countryChecked = document.querySelector('input[name="countryToggle"]:checked');
 
     const query = (mainInput?.value || '').trim();
     const nqueriesRaw = (nqueriesInput?.value || '').trim();
@@ -46,9 +50,21 @@ async function fetchDiscovery() {
         hasError = true;
         if (nqueriesInput) {
             nqueriesInput.classList.remove('animate-shake');
-            void nqueriesInput.offsetWidth; // trigger reflow
+            void nqueriesInput.offsetWidth;
             nqueriesInput.classList.add('border-red-500', 'ring-2', 'ring-red-500', 'animate-shake');
         }
+    }
+
+    if (!countryChecked) {
+        hasError = true;
+        if (countryControl) {
+            countryControl.classList.remove('animate-shake');
+            void countryControl.offsetWidth;
+            countryControl.classList.add('border-red-500', 'ring-2', 'ring-red-500', 'animate-shake');
+        }
+    }
+
+    if (!hasValidQuantity || !countryChecked) {
         const filterDropdown = document.getElementById('filterDropdown');
         if (filterDropdown && filterDropdown.classList.contains('hidden')) {
             filterDropdown.classList.remove('hidden');
@@ -73,6 +89,10 @@ async function fetchDiscovery() {
     try {
         const response = await fetch(`/api/discovery${qs}`);
         const data = await response.json();
+
+        if (typeof loadMapForCountry === 'function') {
+            await loadMapForCountry(countryChecked.value);
+        }
 
         //updateStatus(`✅ ${data.length} artículos encontrados.`);
         updateStatus(`Artículos recolectados con éxito.`);

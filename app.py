@@ -5,8 +5,6 @@ import queue
 import threading
 import asyncio
 from datetime import datetime
-from constants import MEXICAN_STATES
-
 import pandas as pd
 from flask import Flask, render_template, request, Response, jsonify
 
@@ -32,7 +30,18 @@ def run_orchestrator_mapping(search_params, q):
 
 @app.route('/')
 def index():
-    return render_template('index.html', states_data=MEXICAN_STATES)
+    return render_template('index.html')
+
+@app.route('/api/available-maps', methods=['GET'])
+def available_maps():
+    config_path = os.path.join(app.root_path, 'static', 'maps', 'map_config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        maps_list = [{"key": k, "country_name": v.get("country_name", k)} for k, v in config.items()]
+        return jsonify(maps_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 #  (ETAPA 1): Botón "Buscar Noticias Rápidas"
 @app.route('/api/discovery', methods=['GET'])
@@ -40,6 +49,7 @@ def api_discovery():
     search_params = {
         'query': request.args.get('query', ''),
         'nqueries': request.args.get('nqueries', '15'),
+        'country': request.args.get('country', 'mx'),
         'qrangedate': request.args.get('qrangedate', ''),
         'qexception': request.args.get('qexception', ''),
         'qoption': request.args.get('qoption', ''),
@@ -63,6 +73,7 @@ def stream():
     search_params = {
         'query': request.args.get('query', ''),
         'nqueries': request.args.get('nqueries', '15'),
+        'country': request.args.get('country', 'mx'),
         'qrangedate': request.args.get('qrangedate', ''),
         'qexception': request.args.get('qexception', ''),
         'qoption': request.args.get('qoption', ''),

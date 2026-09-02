@@ -908,9 +908,36 @@ function switchTab(tabId) {
     }
 }
 
+async function initCountrySelector() {
+    const container = document.getElementById('countrySegmentedControl');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/available-maps');
+        const maps = await res.json();
+        
+        container.innerHTML = maps.map(m => `
+            <label class="flex-1 text-center cursor-pointer relative">
+                <input type="radio" name="countryToggle" value="${m.key}" class="peer sr-only">
+                <div class="py-1 px-2 text-sm rounded-md peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-sm text-on-surface-variant font-medium transition-all">
+                    ${m.country_name}
+                </div>
+            </label>
+        `).join('');
+
+        // Remove error pulse when interacted
+        container.addEventListener('change', () => {
+            container.classList.remove('border-red-500', 'ring-2', 'ring-red-500', 'animate-shake');
+        });
+    } catch (e) {
+        console.error("Failed to load maps config", e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initDatePicker();
     initSearchAndFilters();
+    initCountrySelector();
     switchTab('main');
 
     // Initialize Leaflet map immediately so tiles load before any fetch

@@ -1,0 +1,20 @@
+{
+  "mx": {
+    "country_name": "Mexico",
+    "center": [23.6345, -102.5528],
+    "zoom": 5,
+    "hl": "es",
+    "gl": "MX",
+    "ceid": "MX:es",
+    "llm_hints": "Map 'CDMX' to 'Ciudad de México'. Map 'Edomex' to 'México'."
+  },
+  "usa": {
+    "country_name": "United States",
+    "center": [39.8283, -98.5795],
+    "zoom": 4,
+    "hl": "en",
+    "gl": "US",
+    "ceid": "US:en",
+    "llm_hints": "States are often abbreviated (e.g., TX for Texas, CA for California). Map standard abbreviations to full state names."
+  }
+}

@@ -14,8 +14,6 @@ from datetime import datetime
 from xml.etree import ElementTree
 from concurrent.futures import ThreadPoolExecutor
 
-from constants import MEXICAN_STATES
-
 import aiosqlite
 from bs4 import BeautifulSoup
 from tenacity import retry, wait_exponential, stop_after_attempt
@@ -180,6 +178,17 @@ def batch_scrape_urls(urls: list, max_workers: int = 5) -> dict:
 
 class GoogleSearchAgent:
     """Agent for Stage 1: Fast Discovery, Rich Metadata & Deduplication."""
+    
+    def __init__(self):
+        # Cache configuration during initialization to avoid blocking disk I/O on every search
+        config_path = os.path.join(BASE_DIR, "static", "maps", "map_config.json")
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                self.map_config = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load map_config.json: {e}")
+            self.map_config = {"mx": {"gl": "MX", "hl": "es", "ceid": "MX:es"}}
+
     async def search(self, session: AsyncSession, search_params: dict) -> list:
         q_parts = []
         if search_params.get("query"): q_parts.append(search_params["query"])
@@ -197,7 +206,16 @@ class GoogleSearchAgent:
         target_count = min(int(search_params.get("nqueries", 15)), 100)
         buffer_limit = target_count * 3 
         
-        url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es-419&gl=MX&ceid=MX:es-419"
+        # Access the cached configuration safely
+        country_key = search_params.get("country", "mx").lower()
+        config = self.map_config.get(country_key, self.map_config.get("mx", {}))
+
+        hl = config.get("hl", "es")
+        gl = config.get("gl", "MX")
+        ceid = config.get("ceid", "MX:es")
+
+        # Construir la URL del RSS de manera totalmente agnóstica
+        url = f"https://news.google.com/rss/search?q={encoded_query}&hl={hl}&gl={gl}&ceid={ceid}"
         
         try:
             response = await session.get(url, timeout=15)
@@ -317,24 +335,37 @@ class NLPAgent:
             return text
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
-    async def extract_states(self, session: AsyncSession, text: str, title: str = "") -> list:
+    async def extract_states(self, session: AsyncSession, text: str, title: str = "", country: str = "mx") -> list:
         if not title.strip() and not text.strip(): 
             return []
 
-        # Compress the body text before sending to LLM
-        compressed_text = self._compress_text(text[:3000])
+        compressed_text = self._compress_text(text[:1800])
 
-        # Convertimos las llaves del diccionario en un string separado por comas
-        valid_states_str = ", ".join(MEXICAN_STATES.keys())
+        config_path = os.path.join(BASE_DIR, "static", "maps", "map_config.json")
+        geojson_path = os.path.join(BASE_DIR, "static", "maps", f"{country}_states.geojson")
+        
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f).get(country, {})
+            with open(geojson_path, "r", encoding="utf-8") as f:
+                geojson_data = json.load(f)
+            
+            valid_regions = [feat["properties"]["state_name"] for feat in geojson_data.get("features", [])]
+            valid_regions_str = ", ".join(valid_regions)
+            country_name = config.get("country_name", country)
+            llm_hints = config.get("llm_hints", "")
+        except Exception as e:
+            logger.error(f"❌ [NLPAgent] Failed to load config for {country}: {e}")
+            return []
 
         prompt = (
-            "You are an expert geographic entity extractor. Analyze the news and extract ONLY the Mexican states that are the MAIN FOCUS of the story.\n\n"
+            f"You are a strict geographic entity extractor. Analyze the text and extract ONLY the {country_name} regions that are the MAIN FOCUS of the story.\n\n"
             "CRITICAL RULES:\n"
-            f"1. STRICT VOCABULARY: You MUST ONLY output states that perfectly match this exact list: [{valid_states_str}]. NEVER extract countries or foreign locations.\n"
-            "2. TITLE PRIORITY: If a valid state is explicitly mentioned in the Title, it IS the primary state.\n"
-            "3. INFER FROM CITIES: If a well-known Mexican city is the focus (e.g., 'Monterrey'), output its corresponding State ('Nuevo León').\n"
-            "4. NO HALLUCINATIONS: If the news is about an international event or no Mexican state is the focus, return an empty array.\n"
-            "5. OUTPUT FORMAT: Return ONLY a valid JSON object: {\"estados\": [\"State1\"]}.\n\n"
+            f"1. EXACT VOCABULARY: Output MUST perfectly match items from this exact list: [{valid_regions_str}].\n"
+            f"2. ALIASES & RULES: {llm_hints}\n"
+            "3. CITY INFERENCE: If a known city is the focus, output its parent region from the list.\n"
+            "4. NO HALLUCINATIONS: If no region is the primary focus, return an empty array.\n"
+            "5. FORMAT: Return ONLY valid JSON: {\"locations\": [\"Region1\"]}.\n\n"
             f"Title: {title}\nText: {compressed_text}"
         )
 
@@ -351,7 +382,7 @@ class NLPAgent:
                 json_match = re.search(r'\{.*\}', clean_json_str, re.DOTALL)
                 if json_match: clean_json_str = json_match.group(0)
                 
-                estados = json.loads(clean_json_str).get("estados", [])
+                estados = json.loads(clean_json_str).get("locations", [])
                 return estados if isinstance(estados, list) else []
             return []
         except Exception as e:
@@ -663,7 +694,7 @@ class OrchestratorAgent:
                 if not states:
                     # Pass text sequentially using Semaphore(1)
                     async with self.nlp_semaphore:
-                        states = await self.nlp.extract_states(None, a.get("scraped_text", ""), title=a.get("title", ""))
+                        states = await self.nlp.extract_states(None, a.get("scraped_text", ""), title=a.get("title", ""), country=search_params.get("country", "mx"))
                     
                     a["states"] = states if isinstance(states, list) else []
                     
