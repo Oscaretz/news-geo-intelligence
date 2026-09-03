@@ -128,7 +128,7 @@ let feedCurrentPage = 0;
 const FEED_PAGE_SIZE = 10;
 
 function renderArticle(article, mode) {
-    if (!collectedArticles.includes(article)) {
+    if (!collectedArticles.some(a => a.url === article.url)) {
         collectedArticles.push(article);
     }
     renderTopStories();

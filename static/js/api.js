@@ -85,6 +85,10 @@ async function fetchDiscovery() {
 
     resetUI('discovery');
     const qs = buildQueryString();
+    
+    // Bloqueo de concurrencia para evitar peticiones duplicadas
+    if (window._isFetching) return;
+    window._isFetching = true;
 
     try {
         const response = await fetch(`/api/discovery${qs}`);
@@ -102,6 +106,9 @@ async function fetchDiscovery() {
         }, 3000);
 
         data.forEach(article => {
+            // Idempotencia: Evitar procesar el artículo en gráficas y KPIs si ya fue ingresado
+            if (collectedArticles.some(a => a.url === article.url)) return;
+            
             // Proveer arreglo vacío para compatibilidad de KPIs
             article.states = [];
 
@@ -120,6 +127,8 @@ async function fetchDiscovery() {
     } catch (error) {
         console.error("Detalle del error:", error);
         updateStatus(`❌ Error de conexión.`);
+    } finally {
+        window._isFetching = false;
     }
 }
 
