@@ -739,7 +739,11 @@ function initDatePicker() {
         flatpickr(mainInput, {
             mode: "range",
             dateFormat: "Y-m-d",
-            allowInput: false
+            allowInput: false,
+            onChange: function() {
+                mainInput.dispatchEvent(new Event('input', { bubbles: true }));
+                mainInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         });
     }
 
@@ -934,10 +938,43 @@ async function initCountrySelector() {
     }
 }
 
+function initClearButtons() {
+    document.querySelectorAll('.clear-btn').forEach(btn => {
+        const input = btn.previousElementSibling;
+        if (!input || input.tagName !== 'INPUT') return;
+        
+        const toggleClear = () => {
+            if (input.value && input.value.trim().length > 0) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        };
+        
+        input.addEventListener('input', toggleClear);
+        input.addEventListener('change', toggleClear);
+        toggleClear(); // Initial state
+        
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (input._flatpickr) {
+                input._flatpickr.clear();
+            } else {
+                input.value = '';
+            }
+            input.focus();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            toggleClear();
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initDatePicker();
     initSearchAndFilters();
     initCountrySelector();
+    initClearButtons();
     switchTab('main');
 
     // Initialize Leaflet map immediately so tiles load before any fetch

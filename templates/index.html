@@ -127,24 +127,39 @@
 <div class="grid grid-cols-2 gap-md">
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Secondary Keywords</label>
-<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text"/>
+<div class="relative">
+<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text"/>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
 </div>
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Exclude Words</label>
-<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text"/>
+<div class="relative">
+<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text"/>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
 </div>
 <div class="col-span-2 flex gap-md items-end">
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Date Range</label>
-<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." readonly>
+<div class="relative">
+<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." readonly>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
 </div>
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Domain filter</label>
-<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Ej. .mx, .gob.mx, reforma.com">
+<div class="relative">
+<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Ej. .mx, .gob.mx, reforma.com">
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
 </div>
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Quantity</label>
-<input type="number" id="nqueriesInput" class="w-full bg-surface-container rounded-md px-3 py-2 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" min="1" max="50" placeholder="Cantidad">
+<div class="relative">
+<input type="number" id="nqueriesInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" min="1" max="50" placeholder="Cantidad">
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
 </div>
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Country</label>
