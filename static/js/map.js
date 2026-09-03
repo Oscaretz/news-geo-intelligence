@@ -6,39 +6,69 @@ let geoJsonData = null;
 let mapStateCounts = {};
 let currentCountryConfig = null;
 
-function initMap() {
+function isValidCenter(center) {
+    return Array.isArray(center) && center.length >= 2 && !isNaN(center[0]) && !isNaN(center[1]);
+}
+
+function initMap(force = false) {
     const mapContainer = document.getElementById('map');
-    if (!mapContainer || mapContainer.offsetWidth === 0) return;
+    if (!mapContainer) return;
+    if (!force && mapContainer.offsetWidth === 0) return;
 
     if (!map) {
-        map = L.map('map', { zoomControl: false }).setView([0, 0], 2);
+        let center = [0, 0];
+        let zoom = 2;
+        if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+            center = currentCountryConfig.center;
+            zoom = currentCountryConfig.zoom || 2;
+        }
+        map = L.map('map', { zoomControl: false }).setView(center, zoom);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
             maxZoom: 16
         }).addTo(map);
+        
+        if (geoJsonData && !geojsonLayer) {
+            createGeoJsonLayer();
+        }
     }
-    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    
+    // Always synchronously invalidate size if forced to ensure Leaflet has dimensions before any flyTo
+    if (force) {
+        map.invalidateSize();
+    } else {
+        setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    }
 }
 
 async function loadMapForCountry(countryKey) {
-    if (!map) initMap();
+    if (!map) initMap(true);
+    
+    // Ensure map size is updated before performing animations
+    if (map) map.invalidateSize();
+
     try {
-        const configRes = await fetch('/api/available-maps');
-        const mapsConfig = await configRes.json();
-        const conf = mapsConfig.find(m => m.key === countryKey);
-        
         const fullConfigRes = await fetch('/static/maps/map_config.json');
         const fullConfig = await fullConfigRes.json();
         currentCountryConfig = fullConfig[countryKey];
 
-        if (currentCountryConfig) {
-            map.flyTo(currentCountryConfig.center, currentCountryConfig.zoom, { animate: true, duration: 1 });
+        if (map && currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+            const size = map.getSize();
+            // If the map has no size yet, flyTo will crash with NaN. Fallback to setView.
+            if (size.x === 0 || size.y === 0) {
+                map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 4);
+            } else {
+                map.flyTo(currentCountryConfig.center, currentCountryConfig.zoom || 4, { animate: true, duration: 1 });
+            }
         }
 
         const geoRes = await fetch(`/static/maps/${countryKey}_states.geojson`);
         geoJsonData = await geoRes.json();
-        createGeoJsonLayer();
+        
+        if (map) {
+            createGeoJsonLayer();
+        }
     } catch (e) {
         console.error("Error loading map for country:", countryKey, e);
     }
@@ -55,10 +85,10 @@ function matchGeoJsonState(stateName) {
 
     if (geoJsonData && geoJsonData.features) {
         const found = geoJsonData.features.find(f => {
-            const fNorm = normalizeText(f.properties.name);
+            const fNorm = normalizeText(f.properties.state_name);
             return fNorm === sNorm || fNorm.includes(sNorm) || sNorm.includes(fNorm);
         });
-        if (found) return found.properties.name;
+        if (found) return found.properties.state_name;
     }
     return stateName;
 }
@@ -94,7 +124,7 @@ function getChoroplethColor(count, maxCount) {
 }
 
 function styleFeature(feature) {
-    const stateName = feature.properties.name;
+    const stateName = feature.properties.state_name;
     const count = getStateCount(stateName);
     const maxCount = getMaxStateCount();
     const isHighlighted = count > 0;
@@ -109,7 +139,7 @@ function styleFeature(feature) {
 }
 
 function onEachFeature(feature, layer) {
-    const stateName = feature.properties.name;
+    const stateName = feature.properties.state_name;
     const displayName = stateName;
 
     layer.bindTooltip(() => {
@@ -121,7 +151,8 @@ function onEachFeature(feature, layer) {
     }, {
         sticky: true,
         direction: 'auto',
-        className: 'custom-map-tooltip'
+        className: 'custom-map-tooltip',
+        interactive: false
     });
 
     layer.on({
@@ -132,9 +163,8 @@ function onEachFeature(feature, layer) {
                 color: '#1a73e8',
                 fillOpacity: 0.9
             });
-            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-                l.bringToFront();
-            }
+            // Removed bringToFront() because mutating DOM order during hover causes 
+            // the browser to fire errant mouseout events, creating sticky hover bugs.
         },
         mouseout: function (e) {
             if (geojsonLayer) {
@@ -195,10 +225,19 @@ function renderHeatMap() {
 
 function centerMap() {
     if (map) {
-        if (currentCountryConfig) {
-            map.flyTo(currentCountryConfig.center, currentCountryConfig.zoom, { animate: true, duration: 1.2 });
+        const size = map.getSize();
+        if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+            if (size.x === 0 || size.y === 0) {
+                map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 4);
+            } else {
+                map.flyTo(currentCountryConfig.center, currentCountryConfig.zoom || 4, { animate: true, duration: 1.2 });
+            }
         } else {
-            map.flyTo([0, 0], 2, { animate: true, duration: 1.2 });
+            if (size.x === 0 || size.y === 0) {
+                map.setView([0, 0], 2);
+            } else {
+                map.flyTo([0, 0], 2, { animate: true, duration: 1.2 });
+            }
         }
     }
 }

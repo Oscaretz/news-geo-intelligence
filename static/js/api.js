@@ -127,8 +127,15 @@ async function fetchDiscovery() {
 // Stage 2: Mapping (EventSource)
 // ============================================
 
-function startStreamMapping() {
+async function startStreamMapping() {
     resetUI('mapping');
+    
+    // Ensure map and GeoJSON are loaded for the selected country before streaming starts
+    const countryChecked = document.querySelector('input[name="countryToggle"]:checked');
+    if (countryChecked && typeof loadMapForCountry === 'function') {
+        await loadMapForCountry(countryChecked.value);
+    }
+    
     const qs = buildQueryString();
     const eventSource = new EventSource(`/stream${qs}`);
 

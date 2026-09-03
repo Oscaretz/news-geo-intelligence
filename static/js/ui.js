@@ -117,7 +117,7 @@ function resetUI(mode) {
         if (feed) feed.classList.remove('grid-mode');
         if (btnDlMap) btnDlMap.style.display = '';
         
-        if (typeof initMap === 'function') initMap();
+        if (typeof initMap === 'function') initMap(true);
         if (typeof resetMapState === 'function') resetMapState();
         
         updateStatus('Buscando el buffer de noticias...');

@@ -124,10 +124,17 @@ function initStatesBarChart() {
 }
 
 function updateStatesBar(statesArray) {
-    if (!statesArray || !statesArray.length || !statesBarChart) return;
-    statesArray.forEach(state => {
-        if (state) stateCounts[state] = (stateCounts[state] || 0) + 1;
-    });
+    if (!statesBarChart) return;
+    
+    const validStates = (statesArray || []).filter(s => s && s.trim());
+    
+    if (validStates.length === 0) {
+        stateCounts['Sin localidad'] = (stateCounts['Sin localidad'] || 0) + 1;
+    } else {
+        validStates.forEach(state => {
+            stateCounts[state] = (stateCounts[state] || 0) + 1;
+        });
+    }
 
     const sorted = Object.entries(stateCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
     const labels = sorted.map(e => e[0]);
@@ -136,8 +143,9 @@ function updateStatesBar(statesArray) {
 
     statesBarChart.data.labels = labels;
     statesBarChart.data.datasets[0].data = data;
-    statesBarChart.data.datasets[0].backgroundColor = data.map(v => {
+    statesBarChart.data.datasets[0].backgroundColor = data.map((v, i) => {
         const alpha = 0.25 + (v / maxVal) * 0.75;
+        if (labels[i] === 'Sin localidad') return `rgba(158, 158, 158, ${alpha.toFixed(2)})`;
         return `rgba(52, 168, 83, ${alpha.toFixed(2)})`;
     });
     statesBarChart.update('none');
