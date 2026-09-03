@@ -198,7 +198,13 @@ class GoogleSearchAgent:
         if search_params.get("qexception"):
             for ex in search_params["qexception"].split(): q_parts.append(f"-{ex}")
         if search_params.get("qsite"): q_parts.append(f"site:{search_params['qsite']}")
-        if search_params.get("qrangedate"): q_parts.append(f"when:{search_params['qrangedate']}")
+        if search_params.get("qrangedate"):
+            date_val = search_params["qrangedate"].strip()
+            if " to " in date_val:
+                start_date, end_date = date_val.split(" to ", 1)
+                q_parts.append(f"after:{start_date} before:{end_date}")
+            else:
+                q_parts.append(f"after:{date_val}")
             
         final_query = " ".join(q_parts) or "noticias"
         encoded_query = urllib.parse.quote(final_query)
