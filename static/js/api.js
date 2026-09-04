@@ -105,19 +105,24 @@ async function fetchDiscovery() {
             if (statusBox) statusBox.style.display = 'none';
         }, 3000);
 
-        data.forEach(article => {
-            // Idempotencia: Evitar procesar el artículo en gráficas y KPIs si ya fue ingresado
-            if (collectedArticles.some(a => a.url === article.url)) return;
-            
-            // Proveer arreglo vacío para compatibilidad de KPIs
-            article.states = [];
+        if (data.length === 0) {
+            renderTopStories([], "No articles found matching your criteria.");
+            renderFullFeed();
+        } else {
+            data.forEach(article => {
+                // Idempotencia: Evitar procesar el artículo en gráficas y KPIs si ya fue ingresado
+                if (collectedArticles.some(a => a.url === article.url)) return;
+                
+                // Proveer arreglo vacío para compatibilidad de KPIs
+                article.states = [];
 
-            renderArticle(article, 'discovery'); // ui.js guarda el artículo en crudo aquí
-            updateKPIs(article);
-            updateSourcesBar(article.source);
-            updateStatesBar(article.states); // NUEVO: Alimentar gráfica de Estados
-            updateTimeline(article.date);
-        });
+                renderArticle(article, 'discovery'); // ui.js guarda el artículo en crudo aquí
+                updateKPIs(article);
+                updateSourcesBar(article.source);
+                updateStatesBar(article.states); // NUEVO: Alimentar gráfica de Estados
+                updateTimeline(article.date);
+            });
+        }
 
         document.getElementById('actionButtons').style.display = 'flex';
         const exportBtn = document.getElementById('exportExcelBtn');

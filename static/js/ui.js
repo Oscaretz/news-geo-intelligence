@@ -135,12 +135,43 @@ function renderArticle(article, mode) {
     renderFullFeed();
 }
 
-function renderTopStories(articles = null) {
+function renderTopStories(articles = null, emptyMessage = null) {
     const feed = document.getElementById('articlesFeed');
     if (!feed) return;
     feed.innerHTML = '';
 
     const sourceData = articles || collectedArticles;
+
+    if (sourceData.length === 0) {
+        const placeholder = document.createElement('article');
+        placeholder.id = 'articlesPlaceholder';
+        if (emptyMessage) {
+            placeholder.className = 'flex flex-col items-center justify-center p-8 text-center text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl bg-surface-container-lowest';
+            placeholder.innerHTML = `
+                <span class="material-symbols-outlined text-4xl mb-2 text-on-surface-variant/40">search_off</span>
+                <p class="text-body-md font-medium text-on-surface mb-1">No articles found</p>
+                <p class="text-xs text-on-surface-variant">${emptyMessage}</p>
+            `;
+        } else {
+            placeholder.className = 'group flex flex-col';
+            placeholder.innerHTML = `
+                <div class="overflow-hidden rounded-xl mb-3 h-72 bg-surface-container flex flex-col items-center justify-center text-on-surface-variant/40 border border-dashed border-outline-variant/40">
+                    <span class="material-symbols-outlined text-5xl mb-2">newspaper</span>
+                    <span class="text-xs font-medium uppercase tracking-wider">News Preview</span>
+                </div>
+                <h3 class="text-title-md font-title-md text-on-surface mb-1 leading-snug">Waiting for search...</h3>
+                <p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time.</p>
+                <div class="flex items-center gap-2 text-label-md text-on-surface-variant">
+                    <span class="px-2 py-0.5 rounded bg-surface-container text-xs font-medium text-on-surface-variant">AI News Explorer</span>
+                    <span>·</span>
+                    <span>Today</span>
+                </div>
+            `;
+        }
+        feed.appendChild(placeholder);
+        return;
+    }
+
     const recent = sourceData.slice(-2).reverse();
 
     if (recent[0]) {
@@ -353,6 +384,23 @@ function renderFullFeed() {
     const pageItems = filtered.slice(start, start + FEED_PAGE_SIZE);
 
     list.innerHTML = '';
+
+    if (filtered.length === 0) {
+        list.innerHTML = `
+            <div class="p-6 text-center text-on-surface-variant flex flex-col items-center justify-center">
+                <span class="material-symbols-outlined text-4xl mb-2 text-on-surface-variant/40">search_off</span>
+                <p class="text-body-md font-medium text-on-surface mb-1">No articles found</p>
+                <p class="text-xs text-on-surface-variant">No articles found matching your criteria.</p>
+            </div>`;
+        if (infoEl) infoEl.textContent = '0 of 0';
+        const prevBtn = document.getElementById('feedPrevBtn');
+        const nextBtn = document.getElementById('feedNextBtn');
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
+        updateNewsSummarySubtitle(filtered);
+        return;
+    }
+
     pageItems.forEach(a => {
         const url = currentMode === 'mapping' ? (a.real_url || a.url) : a.url;
         const thumb = a.image || 'https://placehold.co/100x100/e2e8f0/475569?text=News';
@@ -975,6 +1023,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearchAndFilters();
     initCountrySelector();
     initClearButtons();
+    renderTopStories();
+    renderFullFeed();
     switchTab('main');
 
     // Initialize Leaflet map immediately so tiles load before any fetch
