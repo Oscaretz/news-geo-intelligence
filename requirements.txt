@@ -16,3 +16,5 @@ llmlingua>=0.2.0
 Pillow
 asyncpg
 psycopg2-binary
+dagster
+dagster-webserver

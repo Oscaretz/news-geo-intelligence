@@ -16,5 +16,5 @@ news_images/
 stitch/
 cache.db
 
-
-
+# Dagster temporary storage
+.tmp_dagster_home_*/

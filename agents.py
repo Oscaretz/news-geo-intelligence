@@ -462,8 +462,16 @@ class OrchestratorAgent:
 
     async def init_history_db(self):
         try:
-            db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@localhost:5432/history_db')
-            self.history_db = await asyncpg.create_pool(db_url)
+            db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@postgres:5432/history_db')
+            try:
+                self.history_db = await asyncpg.create_pool(db_url)
+            except Exception as pool_err:
+                # Si falló resolviendo 'postgres' en entorno local (fuera del contenedor)
+                if '@postgres:' in db_url:
+                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+                    self.history_db = await asyncpg.create_pool(db_url)
+                else:
+                    raise pool_err
             
             async with self.history_db.acquire() as conn:
                 await conn.execute("""
