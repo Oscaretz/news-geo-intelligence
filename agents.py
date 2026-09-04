@@ -484,6 +484,7 @@ class OrchestratorAgent:
                     )
                 """)
                 await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'COMPLETED';")
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
                 
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
@@ -507,7 +508,7 @@ class OrchestratorAgent:
         if self.db: await self.db.close()
         if self.history_db: await self.history_db.close()
 
-    async def fetch_discovery(self, search_params):
+    async def fetch_discovery(self, search_params, execution_id=None):
         if not self.db:
             await self.init_cache()
             
@@ -629,7 +630,8 @@ class OrchestratorAgent:
                 a.pop('scraped_text', None)
                 
             # History Persistence (Phase 1)
-            execution_id = str(uuid.uuid4())
+            if not execution_id:
+                execution_id = str(uuid.uuid4())
             filters_json = json.dumps(search_params)
             
             if not self.history_db:
@@ -638,8 +640,13 @@ class OrchestratorAgent:
             async with self.history_lock:
                 async with self.history_db.acquire() as conn:
                     async with conn.transaction():
+                        # Update status and end_time if already exists, else insert
                         await conn.execute(
-                            "INSERT INTO search_executions (execution_id, search_term, filters, status) VALUES ($1, $2, $3::jsonb, 'SCRAPED')",
+                            """
+                            INSERT INTO search_executions (execution_id, search_term, filters, status, end_time) 
+                            VALUES ($1, $2, $3::jsonb, 'SCRAPED', CURRENT_TIMESTAMP)
+                            ON CONFLICT (execution_id) DO UPDATE SET status = 'SCRAPED', end_time = CURRENT_TIMESTAMP
+                            """,
                             execution_id, query_key, filters_json
                         )
                         
@@ -751,11 +758,11 @@ class OrchestratorAgent:
                     }
                     
             async with self.history_db.acquire() as conn:
-                await conn.execute("UPDATE search_executions SET status = 'COMPLETED' WHERE execution_id = $1", execution_id)
+                await conn.execute("UPDATE search_executions SET status = 'COMPLETED', end_time = CURRENT_TIMESTAMP WHERE execution_id = $1", execution_id)
                 
         except Exception as e:
             async with self.history_db.acquire() as conn:
-                await conn.execute("UPDATE search_executions SET status = 'PARTIALLY_ANALYZED' WHERE execution_id = $1", execution_id)
+                await conn.execute("UPDATE search_executions SET status = 'PARTIALLY_ANALYZED', end_time = CURRENT_TIMESTAMP WHERE execution_id = $1", execution_id)
             raise e
             
         elapsed = time.time() - start_time

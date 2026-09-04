@@ -26,7 +26,7 @@ class QueueManager:
                             if row:
                                 execution_id = row['execution_id']
                                 self.active_execution_id = execution_id
-                                await conn.execute("UPDATE search_executions SET status = 'ANALYZING' WHERE execution_id = $1", execution_id)
+                                await conn.execute("UPDATE search_executions SET status = 'ANALYZING', end_time = NULL WHERE execution_id = $1", execution_id)
                 
                 if execution_id:
                     # Execute phase 2!

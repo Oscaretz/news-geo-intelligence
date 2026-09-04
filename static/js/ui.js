@@ -1467,12 +1467,20 @@ function renderJobsQueue(jobs) {
     }
 
     jobs.forEach((job, index) => {
-        const isRunning = job.status === 'ANALYZING' || job.status === 'STARTED';
+        const isRunning = job.status === 'ANALYZING' || job.status === 'STARTED' || job.status === 'SCRAPING';
         const isQueued = job.status === 'QUEUED_FOR_ANALYSIS';
         
         let elapsedStr = "-";
         if (job.start_time) {
-            const end = job.end_time ? (job.end_time * 1000) : Date.now();
+            // If job has an end_time, freeze it there.
+            // If job doesn't have an end_time but is in a terminal state, freeze it at now (shouldn't happen with DB update, but fallback)
+            let end = Date.now();
+            if (job.end_time) {
+                end = job.end_time * 1000;
+            } else if (!['STARTED', 'STARTING', 'SCRAPING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING'].includes(job.status)) {
+                // If it's a legacy terminal state without end_time, just don't keep incrementing it visually if we can't help it.
+                // Actually if there's no end_time, it will keep ticking. We rely on the backend providing end_time.
+            }
             const start = job.start_time * 1000;
             const diffSec = Math.max(0, Math.floor((end - start) / 1000));
             const m = Math.floor(diffSec / 60).toString().padStart(2, '0');

@@ -104,27 +104,41 @@ def start_job():
     }
 
     try:
+        import uuid
+        import json
+        import asyncio
+        from agents import OrchestratorAgent
+        
+        execution_id = str(uuid.uuid4())
+        search_term = search_params.get('query', '')
+        filters_json = json.dumps(search_params)
+        
+        # Synchronously insert the execution so it shows up immediately in the UI
+        async def init_exec():
+            orchestrator = OrchestratorAgent()
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
+                await conn.execute(
+                    "INSERT INTO search_executions (execution_id, search_term, filters, status) VALUES ($1, $2, $3::jsonb, 'SCRAPING')",
+                    execution_id, search_term, filters_json
+                )
+        asyncio.run(init_exec())
+
         def run_in_background():
-            import asyncio
-            from agents import OrchestratorAgent
-            
             async def phase1():
                 orchestrator = OrchestratorAgent()
                 await orchestrator.init_cache()
                 try:
-                    execution_id, _ = await orchestrator.fetch_discovery(search_params)
-                    return execution_id
+                    await orchestrator.fetch_discovery(search_params, execution_id)
                 finally:
                     await orchestrator.close()
-                    
             asyncio.run(phase1())
                 
         import threading
         threading.Thread(target=run_in_background, daemon=True).start()
         
-        # We return a dummy success, because Phase 1 creates the execution_id asynchronously
-        # The UI will just poll /api/jobs and see the new job appear.
-        return jsonify({"success": True})
+        return jsonify({"success": True, "run_id": execution_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -139,7 +153,8 @@ def list_jobs():
             orchestrator = OrchestratorAgent()
             await orchestrator.init_history_db()
             async with orchestrator.history_db.acquire() as conn:
-                rows = await conn.fetch("SELECT execution_id, search_term, status, timestamp FROM search_executions ORDER BY timestamp DESC LIMIT 20")
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
+                rows = await conn.fetch("SELECT execution_id, search_term, status, timestamp, end_time FROM search_executions ORDER BY timestamp DESC LIMIT 20")
                 
                 jobs_data = []
                 for r in rows:
@@ -150,7 +165,7 @@ def list_jobs():
                         "status": r['status'],
                         "query": r['search_term'],
                         "start_time": r['timestamp'].timestamp() if r['timestamp'] else None,
-                        "end_time": None, # Could calculate if needed
+                        "end_time": r['end_time'].timestamp() if r['end_time'] else None,
                         "progress_pct": prog["progress_pct"],
                         "current_step": prog["current_step"]
                     })
