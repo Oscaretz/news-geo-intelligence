@@ -214,6 +214,9 @@
 <button id="tab-history" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('history')">
 <span class="text-body-md font-body-md">History</span>
 </button>
+<button id="tab-jobs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('jobs')">
+<span class="text-body-md font-body-md">Queue / Jobs</span>
+</button>
 <button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
 <span class="text-body-md font-body-md">Technical Documentation</span>
 </button>
@@ -443,6 +446,34 @@
         <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
             <h2 class="text-title-md font-title-md text-primary-container mb-md">Technical Documentation</h2>
             <div class="text-body-md text-on-surface-variant">Content for Technical Documentation will be displayed here.</div>
+        </div>
+    </div>
+    
+    <!-- TAB: JOBS QUEUE -->
+    <div id="view-jobs" class="hidden flex flex-col gap-lg w-full">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md">
+                <h2 class="text-title-md font-title-md text-primary-container">Background Jobs Queue</h2>
+                <button onclick="fetchJobs()" class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                </button>
+            </div>
+            <div class="w-full overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="jobsTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant">
+                            <th class="py-3 px-4 font-medium">Job ID</th>
+                            <th class="py-3 px-4 font-medium">Search Term</th>
+                            <th class="py-3 px-4 font-medium">Status</th>
+                            <th class="py-3 px-4 font-medium">Elapsed Time</th>
+                            <th class="py-3 px-4 font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody" class="text-body-md text-on-surface">
+                        <!-- Dynamic Jobs -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     

@@ -82,7 +82,15 @@ function updateStatus(message) {
     
     if (statusText) statusText.textContent = parsedMsg;
 
-    const isComplete = message.includes('complete') || message.includes('éxito') || message.includes('Error') || message.includes('❌');
+    const lowerMsg = message.toLowerCase();
+    const isError = message.includes('Error') || message.includes('❌') || lowerMsg.includes('failed');
+    const isComplete = isError || 
+                       message.includes('éxito') || 
+                       lowerMsg.includes('exito') || 
+                       lowerMsg.includes('complete') || 
+                       lowerMsg.includes('completado') || 
+                       lowerMsg.includes('success') || 
+                       lowerMsg.includes('iniciado');
     if (isComplete) {
         if (extractionTimer) clearInterval(extractionTimer);
         if (fakeProgressInterval) clearInterval(fakeProgressInterval);
@@ -1045,7 +1053,8 @@ function switchTab(tabId) {
         'analytics': document.getElementById('view-analytics'),
         'docs': document.getElementById('view-docs'),
         'manual': document.getElementById('view-manual'),
-        'history': document.getElementById('view-history')
+        'history': document.getElementById('view-history'),
+        'jobs': document.getElementById('view-jobs')
     };
     
     const tabs = {
@@ -1053,7 +1062,8 @@ function switchTab(tabId) {
         'analytics': document.getElementById('tab-analytics'),
         'docs': document.getElementById('tab-docs'),
         'manual': document.getElementById('tab-manual'),
-        'history': document.getElementById('tab-history')
+        'history': document.getElementById('tab-history'),
+        'jobs': document.getElementById('tab-jobs')
     };
 
     // Hide all views, show selected
@@ -1076,9 +1086,12 @@ function switchTab(tabId) {
         }
     });
     
-    // Trigger history load if history tab is selected
+    // Trigger specific tab logic
     if (tabId === 'history' && typeof loadHistory === 'function') {
         loadHistory();
+    }
+    if (tabId === 'jobs' && typeof fetchJobs === 'function') {
+        fetchJobs();
     }
 
     if (tabId === 'analytics') {
@@ -1380,3 +1393,142 @@ window.exportHistory = async function(execution_id) {
         alert('Failed to export history.');
     }
 };
+
+// ============================================
+// Phase 4: Jobs Queue Rendering & Polling
+// ============================================
+let jobsPollInterval = null;
+let liveJobsTimer = null;
+let currentJobsData = [];
+
+function startLiveJobsTimer() {
+    if (!liveJobsTimer) {
+        liveJobsTimer = setInterval(() => {
+            currentJobsData.forEach(job => {
+                if (job.status === 'STARTED' || job.status === 'STARTING' || job.status === 'QUEUED') {
+                    const elapsedCell = document.getElementById(`elapsed-${job.run_id}`);
+                    if (elapsedCell && job.start_time) {
+                        const start = job.start_time * 1000;
+                        const diffSec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+                        const m = Math.floor(diffSec / 60).toString().padStart(2, '0');
+                        const s = (diffSec % 60).toString().padStart(2, '0');
+                        elapsedCell.textContent = `${m}:${s}`;
+                    }
+                }
+            });
+        }, 1000);
+    }
+}
+
+function stopLiveJobsTimer() {
+    if (liveJobsTimer) {
+        clearInterval(liveJobsTimer);
+        liveJobsTimer = null;
+    }
+}
+
+function renderJobsQueue(jobs) {
+    const tbody = document.getElementById('jobsTableBody');
+    if (!tbody) return;
+    
+    currentJobsData = jobs;
+    
+    if (!jobs || jobs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-on-surface-variant">No recent jobs found.</td></tr>';
+        stopLiveJobsTimer();
+        return;
+    }
+
+    const existingRows = Array.from(tbody.querySelectorAll('tr[data-run-id]')).map(tr => tr.getAttribute('data-run-id'));
+    const newRows = jobs.map(j => j.run_id);
+    
+    existingRows.forEach(id => {
+        if (!newRows.includes(id)) {
+            const tr = document.getElementById(`job-row-${id}`);
+            if (tr) tr.remove();
+        }
+    });
+
+    if (tbody.querySelector('td[colspan="5"]')) {
+        tbody.innerHTML = '';
+    }
+
+    jobs.forEach(job => {
+        const isRunning = job.status === 'STARTED' || job.status === 'STARTING' || job.status === 'QUEUED';
+        
+        let elapsedStr = "-";
+        if (job.start_time) {
+            const end = job.end_time ? (job.end_time * 1000) : Date.now();
+            const start = job.start_time * 1000;
+            const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+            const m = Math.floor(diffSec / 60).toString().padStart(2, '0');
+            const s = (diffSec % 60).toString().padStart(2, '0');
+            elapsedStr = `${m}:${s}`;
+        }
+        
+        let statusHtml = '';
+        if (isRunning) {
+            statusHtml = `
+                <div class="flex flex-col gap-1 w-[200px]">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined animate-spin text-primary text-[16px]">sync</span>
+                        <span class="text-label-sm font-medium text-on-surface">${job.current_step || 'Starting...'}</span>
+                    </div>
+                    <div class="w-full bg-surface-variant rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-primary h-1.5 rounded-full transition-all duration-300" style="width: ${job.progress_pct || 0}%"></div>
+                    </div>
+                </div>`;
+        } else {
+            let badgeClass = "bg-surface-container text-on-surface";
+            if (job.status === 'SUCCESS') badgeClass = "bg-green-100 text-green-800";
+            else if (job.status === 'FAILURE') badgeClass = "bg-red-100 text-red-800";
+            else if (job.status === 'CANCELED') badgeClass = "bg-gray-100 text-gray-800";
+            statusHtml = `<span class="px-2 py-1 rounded-full text-[12px] font-medium ${badgeClass}">${job.status}</span>`;
+        }
+
+        let actionsHtml = `<span class="text-on-surface-variant text-sm">None</span>`;
+        if (isRunning) {
+            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-label-sm font-medium transition-colors">Cancel</button>`;
+        }
+
+        let tr = document.getElementById(`job-row-${job.run_id}`);
+        if (!tr) {
+            tr = document.createElement('tr');
+            tr.id = `job-row-${job.run_id}`;
+            tr.setAttribute('data-run-id', job.run_id);
+            tr.className = "border-b border-outline-variant/30 hover:bg-surface-container-low transition-colors";
+            tbody.appendChild(tr);
+        }
+        
+        tr.innerHTML = `
+            <td class="py-3 px-4 font-mono text-sm">${job.run_id.substring(0,8)}...</td>
+            <td class="py-3 px-4 max-w-[200px] truncate" title="${job.query}">${job.query || '(No query)'}</td>
+            <td class="py-3 px-4">${statusHtml}</td>
+            <td class="py-3 px-4 font-mono text-sm text-on-surface-variant" id="elapsed-${job.run_id}">${elapsedStr}</td>
+            <td class="py-3 px-4">${actionsHtml}</td>
+        `;
+    });
+
+    const hasActiveJobs = jobs.some(j => j.status === 'STARTED' || j.status === 'STARTING' || j.status === 'QUEUED');
+    const jobsTabActive = !document.getElementById('view-jobs').classList.contains('hidden');
+    
+    if (hasActiveJobs) {
+        startLiveJobsTimer();
+        if (jobsTabActive && !jobsPollInterval) {
+            jobsPollInterval = setInterval(() => {
+                if (!document.getElementById('view-jobs').classList.contains('hidden')) {
+                    fetchJobs();
+                } else {
+                    clearInterval(jobsPollInterval);
+                    jobsPollInterval = null;
+                }
+            }, 1500);
+        }
+    } else {
+        stopLiveJobsTimer();
+        if (jobsPollInterval) {
+            clearInterval(jobsPollInterval);
+            jobsPollInterval = null;
+        }
+    }
+}

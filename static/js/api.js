@@ -141,7 +141,6 @@ async function fetchDiscovery() {
 async function startStreamMapping() {
     resetUI('mapping');
     
-    // Ensure map and GeoJSON are loaded for the selected country before streaming starts
     const countryChecked = document.querySelector('input[name="countryToggle"]:checked');
     const selectedCountry = countryChecked?.value || 'mx';
     if (typeof loadMapForCountry === 'function') {
@@ -149,44 +148,52 @@ async function startStreamMapping() {
     }
     
     const qs = buildQueryString();
-    const eventSource = new EventSource(`/stream${qs}`);
-
-    eventSource.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-
-        if (data.type === 'update') {
-            updateStatus(data.message);
+    
+    try {
+        const response = await fetch(`/api/jobs/start${qs}`, { method: 'POST' });
+        const data = await response.json();
+        if (data.run_id) {
+            updateStatus(`🚀 Job iniciado con éxito (ID: ${data.run_id.substring(0,8)}...)`);
+            // Switch to Jobs tab to monitor
+            switchTab('jobs');
+            fetchJobs();
+        } else {
+            updateStatus(`❌ Failed to start job: ${data.error}`);
         }
-        else if (data.type === 'article') {
-            const article = data.data;
-            
-            renderArticle(article, 'mapping'); // ui.js guarda el artículo en crudo aquí
-            updateKPIs(article);
-            if (typeof updateMap === 'function') updateMap(article.states);
-            
-            updateSourcesBar(article.source);
-            updateStatesBar(article.states); // NUEVO: Alimentar gráfica de Estados
-            updateTimeline(article.date);
-        }
-        else if (data.type === 'complete' || data.type === 'error') {
-            eventSource.close();
-            if (data.type === 'error') {
-                updateStatus(`❌ ${data.message}`);
-            } else {
-                updateStatus('All processing complete!');
-                document.getElementById('actionButtons').style.display = 'flex';
-                const exportBtn = document.getElementById('exportExcelBtn');
-                if (exportBtn) exportBtn.classList.remove('hidden');
-                const mapearBtn = document.getElementById('mapearBtn');
-                if (mapearBtn) mapearBtn.classList.remove('hidden');
-            }
-        }
-    };
+    } catch (err) {
+        updateStatus(`❌ Error starting job: ${err}`);
+    }
+}
 
-    eventSource.onerror = function() {
-        eventSource.close();
-        updateStatus(`❌ Conexión perdida.`);
-    };
+// ============================================
+// Stage 4: Jobs Queue (Dagster)
+// ============================================
+
+async function fetchJobs() {
+    try {
+        const response = await fetch('/api/jobs');
+        const jobs = await response.json();
+        if (typeof renderJobsQueue === 'function') {
+            renderJobsQueue(jobs);
+        }
+    } catch (err) {
+        console.error("Error fetching jobs:", err);
+    }
+}
+
+async function cancelJob(runId) {
+    if (!confirm(`Are you sure you want to cancel job ${runId.substring(0,8)}?`)) return;
+    try {
+        const response = await fetch(`/api/jobs/${runId}/cancel`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            fetchJobs();
+        } else {
+            alert(`Error canceling job: ${data.error}`);
+        }
+    } catch (err) {
+        console.error("Error canceling job:", err);
+    }
 }
 
 // ============================================

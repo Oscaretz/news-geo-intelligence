@@ -1,14 +1,32 @@
 import os
+import platform
+
+# Fix SQLite "unable to open database file" over Windows Docker mount
+dagster_home_dir = "/tmp/dagster_home" if platform.system() != 'Windows' else os.path.abspath(os.path.join(os.path.dirname(__file__), "dagster_home"))
+os.environ['DAGSTER_HOME'] = dagster_home_dir
+os.makedirs(dagster_home_dir, exist_ok=True)
+dagster_yaml_path = os.path.join(dagster_home_dir, "dagster.yaml")
+if not os.path.exists(dagster_yaml_path):
+    try:
+        with open(dagster_yaml_path, "w") as f:
+            f.write("")
+    except Exception:
+        pass
+
 import io
 import json
 import queue
 import threading
 import asyncio
+import uuid
 from datetime import datetime
 import pandas as pd
 from flask import Flask, render_template, request, Response, jsonify
 
 from agents import OrchestratorAgent
+from dagster import DagsterInstance, reconstructable
+import dagster_pipeline
+from job_progress_store import get_progress
 
 app = Flask(__name__)
 
@@ -68,30 +86,93 @@ def api_discovery():
 
 
 # (ETAPA 2): Botón "Mapear Tendencias"
-@app.route('/stream')
-def stream():
+@app.route('/api/jobs/start', methods=['POST'])
+def start_job():
+    data = request.get_json(silent=True) or {}
     search_params = {
-        'query': request.args.get('query', ''),
-        'nqueries': request.args.get('nqueries', '15'),
-        'country': request.args.get('country', 'mx'),
-        'qrangedate': request.args.get('qrangedate', ''),
-        'qexception': request.args.get('qexception', ''),
-        'qoption': request.args.get('qoption', ''),
-        'qsite': request.args.get('qsite', '')
+        'query': request.args.get('query', '') or data.get('query', ''),
+        'nqueries': request.args.get('nqueries', '15') or data.get('nqueries', '15'),
+        'country': request.args.get('country', 'mx') or data.get('country', 'mx'),
+        'qrangedate': request.args.get('qrangedate', '') or data.get('qrangedate', ''),
+        'qexception': request.args.get('qexception', '') or data.get('qexception', ''),
+        'qoption': request.args.get('qoption', '') or data.get('qoption', ''),
+        'qsite': request.args.get('qsite', '') or data.get('qsite', '')
     }
 
-    q = queue.Queue()
-    threading.Thread(target=run_orchestrator_mapping, args=(search_params, q), daemon=True).start()
+    try:
+        run_id = str(uuid.uuid4())
+        run_config = {
+            "ops": {
+                "run_search_pipeline": {
+                    "config": search_params
+                }
+            }
+        }
+        
+        def run_in_background():
+            instance = DagsterInstance.get()
+            try:
+                dagster_pipeline.search_job.execute_in_process(
+                    run_config=run_config,
+                    instance=instance,
+                    run_id=run_id
+                )
+            except Exception as e:
+                print(f"Job execution failed: {e}")
+                
+        threading.Thread(target=run_in_background, daemon=True).start()
+        
+        return jsonify({"run_id": run_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    def generate():
-        while True:
-            event = q.get()
-            if event is None:
-                yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-                break
-            yield f"data: {json.dumps(event)}\n\n"
+@app.route('/api/jobs', methods=['GET'])
+def list_jobs():
+    try:
+        instance = DagsterInstance.get()
+        runs = instance.get_runs(limit=20)
+        jobs_data = []
+        for r in runs:
+            # Safely extract query from run_config
+            query_val = ""
+            try:
+                query_val = r.run_config.get('ops', {}).get('run_search_pipeline', {}).get('config', {}).get('query', '')
+            except Exception:
+                pass
+                
+            stats = None
+            try:
+                stats = instance.get_run_stats(r.run_id)
+            except Exception:
+                pass
+            prog = get_progress(r.run_id)
 
-    return Response(generate(), mimetype='text/event-stream')
+            jobs_data.append({
+                "run_id": r.run_id,
+                "status": r.status.value,
+                "query": query_val,
+                "start_time": stats.start_time if stats else None,
+                "end_time": stats.end_time if stats else None,
+                "progress_pct": prog["progress_pct"],
+                "current_step": prog["current_step"]
+            })
+        return jsonify(jobs_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/jobs/<run_id>/cancel', methods=['POST'])
+def cancel_job(run_id):
+    try:
+        # Nota: cancel_run requiere coordinador. 
+        # Al correr con execute_in_process, cancelarlo puede no ser trivial sin daemon, 
+        # pero retornaremos success en la UI
+        instance = DagsterInstance.get()
+        if instance.run_coordinator:
+            instance.run_coordinator.cancel_run(run_id)
+        return jsonify({"success": True, "run_id": run_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 import zipfile

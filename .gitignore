@@ -11,10 +11,11 @@ __pycache__/
 .env
 __pycache__/
 venv/
-logs/
 news_images/
 stitch/
 cache.db
 
 # Dagster temporary storage
 .tmp_dagster_home_*/
+dagster_home/
+logs/
