@@ -28,7 +28,11 @@ from dagster import DagsterInstance, reconstructable
 import dagster_pipeline
 from job_progress_store import get_progress
 
+from phase2_queue import queue_manager
+
 app = Flask(__name__)
+queue_manager.start()
+
 
 # Hilo para la Etapa 2 (Streaming)
 def run_orchestrator_mapping(search_params, q):
@@ -100,76 +104,90 @@ def start_job():
     }
 
     try:
-        run_id = str(uuid.uuid4())
-        run_config = {
-            "ops": {
-                "run_search_pipeline": {
-                    "config": search_params
-                }
-            }
-        }
-        
         def run_in_background():
-            instance = DagsterInstance.get()
-            try:
-                dagster_pipeline.search_job.execute_in_process(
-                    run_config=run_config,
-                    instance=instance,
-                    run_id=run_id
-                )
-            except Exception as e:
-                print(f"Job execution failed: {e}")
+            import asyncio
+            from agents import OrchestratorAgent
+            
+            async def phase1():
+                orchestrator = OrchestratorAgent()
+                await orchestrator.init_cache()
+                try:
+                    execution_id, _ = await orchestrator.fetch_discovery(search_params)
+                    return execution_id
+                finally:
+                    await orchestrator.close()
+                    
+            asyncio.run(phase1())
                 
+        import threading
         threading.Thread(target=run_in_background, daemon=True).start()
         
-        return jsonify({"run_id": run_id})
+        # We return a dummy success, because Phase 1 creates the execution_id asynchronously
+        # The UI will just poll /api/jobs and see the new job appear.
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/jobs', methods=['GET'])
 def list_jobs():
     try:
-        instance = DagsterInstance.get()
-        runs = instance.get_runs(limit=20)
-        jobs_data = []
-        for r in runs:
-            # Safely extract query from run_config
-            query_val = ""
-            try:
-                query_val = r.run_config.get('ops', {}).get('run_search_pipeline', {}).get('config', {}).get('query', '')
-            except Exception:
-                pass
+        import asyncpg
+        import asyncio
+        from agents import OrchestratorAgent
+        
+        async def fetch_jobs():
+            orchestrator = OrchestratorAgent()
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                rows = await conn.fetch("SELECT execution_id, search_term, status, timestamp FROM search_executions ORDER BY timestamp DESC LIMIT 20")
                 
-            stats = None
-            try:
-                stats = instance.get_run_stats(r.run_id)
-            except Exception:
-                pass
-            prog = get_progress(r.run_id)
-
-            jobs_data.append({
-                "run_id": r.run_id,
-                "status": r.status.value,
-                "query": query_val,
-                "start_time": stats.start_time if stats else None,
-                "end_time": stats.end_time if stats else None,
-                "progress_pct": prog["progress_pct"],
-                "current_step": prog["current_step"]
-            })
+                jobs_data = []
+                for r in rows:
+                    prog = get_progress(r['execution_id'])
+                    
+                    jobs_data.append({
+                        "run_id": r['execution_id'],
+                        "status": r['status'],
+                        "query": r['search_term'],
+                        "start_time": r['timestamp'].timestamp() if r['timestamp'] else None,
+                        "end_time": None, # Could calculate if needed
+                        "progress_pct": prog["progress_pct"],
+                        "current_step": prog["current_step"]
+                    })
+                return jobs_data
+                
+        jobs_data = asyncio.run(fetch_jobs())
         return jsonify(jobs_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/jobs/<run_id>/cancel', methods=['POST'])
-def cancel_job(run_id):
+@app.route('/api/jobs/<execution_id>/analyze', methods=['POST'])
+def analyze_job(execution_id):
     try:
-        # Nota: cancel_run requiere coordinador. 
-        # Al correr con execute_in_process, cancelarlo puede no ser trivial sin daemon, 
-        # pero retornaremos success en la UI
-        instance = DagsterInstance.get()
-        if instance.run_coordinator:
-            instance.run_coordinator.cancel_run(run_id)
-        return jsonify({"success": True, "run_id": run_id})
+        import asyncio
+        from agents import OrchestratorAgent
+        async def update_status():
+            orchestrator = OrchestratorAgent()
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                await conn.execute("UPDATE search_executions SET status = 'QUEUED_FOR_ANALYSIS' WHERE execution_id = $1", execution_id)
+        asyncio.run(update_status())
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/jobs/<execution_id>/cancel', methods=['POST'])
+def cancel_job(execution_id):
+    try:
+        import asyncio
+        from agents import OrchestratorAgent
+        async def update_status():
+            orchestrator = OrchestratorAgent()
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                await conn.execute("UPDATE search_executions SET status = 'SCRAPED' WHERE execution_id = $1 AND status = 'QUEUED_FOR_ANALYSIS'", execution_id)
+        asyncio.run(update_status())
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

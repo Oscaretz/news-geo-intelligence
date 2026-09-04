@@ -479,9 +479,11 @@ class OrchestratorAgent:
                         execution_id TEXT PRIMARY KEY,
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         search_term TEXT,
-                        filters JSONB
+                        filters JSONB,
+                        status TEXT DEFAULT 'COMPLETED'
                     )
                 """)
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'COMPLETED';")
                 
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
@@ -626,50 +628,60 @@ class OrchestratorAgent:
             for a in articles:
                 a.pop('scraped_text', None)
                 
-            return final_articles
+            # History Persistence (Phase 1)
+            execution_id = str(uuid.uuid4())
+            filters_json = json.dumps(search_params)
+            
+            if not self.history_db:
+                await self.init_history_db()
+                
+            async with self.history_lock:
+                async with self.history_db.acquire() as conn:
+                    async with conn.transaction():
+                        await conn.execute(
+                            "INSERT INTO search_executions (execution_id, search_term, filters, status) VALUES ($1, $2, $3::jsonb, 'SCRAPED')",
+                            execution_id, query_key, filters_json
+                        )
+                        
+                        for a in final_articles:
+                            r_url = a.get("real_url") or a.get("url") or ""
+                            article_id = hashlib.md5(r_url.encode("utf-8")).hexdigest()
+                            raw_img = a.get("image_url") or a.get("image") or ""
+                            await conn.execute(
+                                """
+                                INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url) 
+                                VALUES ($1, $2, $3, $4, $5, $6, NULL, $7) 
+                                ON CONFLICT (article_id) DO UPDATE SET image_url = EXCLUDED.image_url
+                                """,
+                                article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), raw_img
+                            )
+                            
+            return execution_id, final_articles
 
-    async def map_stream(self, search_params):
+    async def map_stream(self, execution_id, country="mx"):
         if not self.db:
             await self.init_cache()
         if not self.history_db:
             await self.init_history_db()
             
-        target_count = min(int(search_params.get("nqueries", 15)), 100)
-        query_key = search_params.get("query", "")
         start_time = time.time()
         
-        # Load strictly the exact same articles that were finalized for the UI in Phase 1
+        # Load articles for this execution that haven't been geocoded yet
+        async with self.history_db.acquire() as conn:
+            rows = await conn.fetch("SELECT article_id, url, title, date, source, image_url FROM articles WHERE execution_id = $1 AND geodata IS NULL", execution_id)
+            
+        articles = [dict(r) for r in rows]
+        total_target = len(articles)
+        
+        # We also need the scraped_text which is only in sqlite cache, keyed by url
         async with self.db_lock:
-            cursor = await self.db.execute(
-                "SELECT url, real_url, states_json, image_path, scraped_text, title, source, date, summary FROM articles_cache WHERE query = ? AND ui_selected > 0 ORDER BY ui_selected ASC",
-                (query_key,)
-            )
-            rows = await cursor.fetchall()
-            if not rows:
-                cursor = await self.db.execute(
-                    "SELECT url, real_url, states_json, image_path, scraped_text, title, source, date, summary FROM articles_cache WHERE query = ? AND LENGTH(TRIM(scraped_text)) > 200 LIMIT ?",
-                    (query_key, target_count)
-                )
-                rows = await cursor.fetchall()
-            
-        articles = []
-        for r in rows:
-            articles.append({
-                "url": r[0],
-                "real_url": r[1] if r[1] else r[0],
-                "states": json.loads(r[2]) if r[2] else [],
-                "image": r[3],
-                "image_url": r[3],
-                "scraped_text": r[4] if r[4] else "",
-                "title": r[5],
-                "source": r[6],
-                "date": r[7],
-                "summary": r[8]
-            })
-            
+            for a in articles:
+                cursor = await self.db.execute("SELECT scraped_text FROM articles_cache WHERE url = ? OR real_url = ?", (a['url'], a['url']))
+                row = await cursor.fetchone()
+                a['scraped_text'] = row[0] if row else ""
+                
         current = 0
         discarded = 0
-        total_target = len(articles)
         
         yield {
             "type": "update",
@@ -682,101 +694,70 @@ class OrchestratorAgent:
             "text": "Starting offline AI inference"
         }
         
-        for a in articles:
-            short_title = a['title'][:30]
-            elapsed = time.time() - start_time
-            
-            yield {
-                "type": "update",
-                "message": f"Analizando el artículo: {short_title}...",
-                "phase": "inference",
-                "current": current,
-                "target": total_target,
-                "discarded": discarded,
-                "elapsed_time": round(elapsed, 2),
-                "text": f"Inference for {short_title}"
-            }
-            
-            try:
-                states = a.get("states", [])
-                if not states:
-                    # Pass text sequentially using Semaphore(1)
-                    async with self.nlp_semaphore:
-                        states = await self.nlp.extract_states(None, a.get("scraped_text", ""), title=a.get("title", ""), country=search_params.get("country", "mx"))
-                    
-                    a["states"] = states if isinstance(states, list) else []
-                    
-                    async with self.db_lock:
-                        await self.db.execute(
-                            "UPDATE articles_cache SET states_json = ? WHERE url = ?",
-                            (json.dumps(a["states"]), a["url"])
-                        )
-                        await self.db.commit()
-                else:
-                    a["states"] = states if isinstance(states, list) else []
-                
-                # Strip raw scraped text before yielding
-                a.pop("scraped_text", None)
-                
-                current += 1
-                
-                elapsed = time.time() - start_time
-                yield {
-                    "type": "article",
-                    "data": a,
-                    "phase": "inference",
-                    "current": current,
-                    "target": total_target,
-                    "discarded": discarded,
-                    "elapsed_time": round(elapsed, 2),
-                    "text": f"Yielded article {short_title}"
-                }
-            except Exception as e:
-                logger.error(f"❌ [map_stream offline process_task Error] '{short_title}...': {e}")
-                a["states"] = []
-                a.pop("scraped_text", None)
-                current += 1
-                elapsed = time.time() - start_time
-                yield {
-                    "type": "article",
-                    "data": a,
-                    "phase": "inference",
-                    "current": current,
-                    "target": total_target,
-                    "discarded": discarded,
-                    "elapsed_time": round(elapsed, 2),
-                    "text": f"Yielded article {short_title} with fallback"
-                }
-                
-        # History Persistence
         try:
-            execution_id = str(uuid.uuid4())
-            search_term = search_params.get("query", "")
-            filters_json = json.dumps(search_params)
-            
-            async with self.history_lock:
-                async with self.history_db.acquire() as conn:
-                    async with conn.transaction():
-                        await conn.execute(
-                            "INSERT INTO search_executions (execution_id, search_term, filters) VALUES ($1, $2, $3::jsonb)",
-                            execution_id, search_term, filters_json
-                        )
+            for a in articles:
+                short_title = a['title'][:30] if a['title'] else ""
+                elapsed = time.time() - start_time
+                
+                yield {
+                    "type": "update",
+                    "message": f"Analizando el artículo: {short_title}...",
+                    "phase": "inference",
+                    "current": current,
+                    "target": total_target,
+                    "discarded": discarded,
+                    "elapsed_time": round(elapsed, 2),
+                    "text": f"Inference for {short_title}"
+                }
+                
+                try:
+                    async with self.nlp_semaphore:
+                        states = await self.nlp.extract_states(None, a.get("scraped_text", ""), title=a.get("title", ""), country=country)
+                    
+                    states_list = states if isinstance(states, list) else []
+                    
+                    # Update postgres
+                    async with self.history_db.acquire() as conn:
+                        await conn.execute("UPDATE articles SET geodata = $1::jsonb WHERE article_id = $2", json.dumps(states_list), a['article_id'])
                         
-                        for a in articles:
-                            r_url = a.get("real_url") or a.get("url") or ""
-                            article_id = hashlib.md5(r_url.encode("utf-8")).hexdigest()
-                            raw_img = a.get("image_url") or a.get("image") or ""
-                            await conn.execute(
-                                """
-                                INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url) 
-                                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) 
-                                ON CONFLICT (article_id) DO UPDATE SET image_url = EXCLUDED.image_url
-                                """,
-                                article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), json.dumps(a.get("states", [])), raw_img
-                            )
+                    a["states"] = states_list
+                    current += 1
+                    
+                    yield {
+                        "type": "article",
+                        "data": a,
+                        "phase": "inference",
+                        "current": current,
+                        "target": total_target,
+                        "discarded": discarded,
+                        "elapsed_time": round(time.time() - start_time, 2),
+                        "text": f"Yielded article {short_title}"
+                    }
+                except Exception as e:
+                    import logging
+                    logging.error(f"❌ [map_stream offline process_task Error] '{short_title}...': {e}")
+                    async with self.history_db.acquire() as conn:
+                        await conn.execute("UPDATE articles SET geodata = $1::jsonb WHERE article_id = $2", json.dumps([]), a['article_id'])
+                    current += 1
+                    yield {
+                        "type": "article",
+                        "data": a,
+                        "phase": "inference",
+                        "current": current,
+                        "target": total_target,
+                        "discarded": discarded,
+                        "elapsed_time": round(time.time() - start_time, 2),
+                        "text": f"Yielded article {short_title} with fallback"
+                    }
+                    
+            async with self.history_db.acquire() as conn:
+                await conn.execute("UPDATE search_executions SET status = 'COMPLETED' WHERE execution_id = $1", execution_id)
+                
         except Exception as e:
-            logger.error(f"⚠️ [History Persistence Error]: {e}")
-
+            async with self.history_db.acquire() as conn:
+                await conn.execute("UPDATE search_executions SET status = 'PARTIALLY_ANALYZED' WHERE execution_id = $1", execution_id)
+            raise e
+            
         elapsed = time.time() - start_time
         yield {
             "type": "update",
@@ -800,10 +781,11 @@ class OrchestratorAgent:
                     se.timestamp, 
                     se.search_term, 
                     se.filters, 
+                    se.status,
                     COUNT(a.article_id) as total_articles 
                 FROM search_executions se 
                 LEFT JOIN articles a ON se.execution_id = a.execution_id 
-                GROUP BY se.execution_id, se.timestamp, se.search_term, se.filters 
+                GROUP BY se.execution_id, se.timestamp, se.search_term, se.filters, se.status 
                 ORDER BY se.timestamp DESC
             """)
             return [dict(r) for r in records]

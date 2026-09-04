@@ -1242,9 +1242,18 @@ function renderHistoryTable() {
         
         const dateStr = run.timestamp ? new Date(run.timestamp).toLocaleString() : 'N/A';
         
+        let statusBadge = '';
+        if (run.status === 'COMPLETED') {
+            statusBadge = '<span class="px-2 py-0.5 ml-2 bg-green-100 text-green-800 text-[10px] font-bold rounded-full border border-green-200">Analyzed</span>';
+        } else if (run.status === 'SCRAPED') {
+            statusBadge = '<span class="px-2 py-0.5 ml-2 bg-blue-50 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">Raw Articles</span>';
+        } else if (run.status) {
+            statusBadge = `<span class="px-2 py-0.5 ml-2 bg-gray-100 text-gray-800 text-[10px] font-bold rounded-full border border-gray-200">${run.status}</span>`;
+        }
+        
         tr.innerHTML = `
             <td class="py-2 px-3 align-middle">${dateStr}</td>
-            <td class="py-2 px-3 align-middle font-medium">${run.search_term || ''}</td>
+            <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
             <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
             <td class="py-2 px-3 align-middle text-right">
@@ -1320,10 +1329,14 @@ window.viewExecution = async function(execution_id) {
         const rawArticles = data.articles || [];
         collectedArticles = rawArticles.map(a => {
             let states = [];
-            if (a.geodata) {
-                states = typeof a.geodata === 'string' ? JSON.parse(a.geodata) : a.geodata;
-            } else if (a.states) {
-                states = typeof a.states === 'string' ? JSON.parse(a.states) : a.states;
+            try {
+                if (a.geodata && a.geodata !== "null") {
+                    states = typeof a.geodata === 'string' ? JSON.parse(a.geodata) : a.geodata;
+                } else if (a.states && a.states !== "null") {
+                    states = typeof a.states === 'string' ? JSON.parse(a.states) : a.states;
+                }
+            } catch (e) {
+                console.warn('Could not parse geodata:', e);
             }
             const remoteImg = a.image_url || a.image || null;
             return {
@@ -1453,8 +1466,9 @@ function renderJobsQueue(jobs) {
         tbody.innerHTML = '';
     }
 
-    jobs.forEach(job => {
-        const isRunning = job.status === 'STARTED' || job.status === 'STARTING' || job.status === 'QUEUED';
+    jobs.forEach((job, index) => {
+        const isRunning = job.status === 'ANALYZING' || job.status === 'STARTED';
+        const isQueued = job.status === 'QUEUED_FOR_ANALYSIS';
         
         let elapsedStr = "-";
         if (job.start_time) {
@@ -1480,15 +1494,26 @@ function renderJobsQueue(jobs) {
                 </div>`;
         } else {
             let badgeClass = "bg-surface-container text-on-surface";
-            if (job.status === 'SUCCESS') badgeClass = "bg-green-100 text-green-800";
+            let displayStatus = job.status;
+            if (job.status === 'COMPLETED' || job.status === 'SUCCESS') badgeClass = "bg-green-100 text-green-800";
+            else if (job.status === 'SCRAPED') badgeClass = "bg-blue-50 text-blue-800";
+            else if (job.status === 'QUEUED_FOR_ANALYSIS') {
+                badgeClass = "bg-purple-100 text-purple-800";
+                const qPos = jobs.slice(0, index + 1).filter(j => j.status === 'QUEUED_FOR_ANALYSIS').length;
+                displayStatus = `QUEUED (Pos: ${qPos})`;
+            }
+            else if (job.status === 'PARTIALLY_ANALYZED') badgeClass = "bg-orange-100 text-orange-800";
             else if (job.status === 'FAILURE') badgeClass = "bg-red-100 text-red-800";
-            else if (job.status === 'CANCELED') badgeClass = "bg-gray-100 text-gray-800";
-            statusHtml = `<span class="px-2 py-1 rounded-full text-[12px] font-medium ${badgeClass}">${job.status}</span>`;
+            
+            statusHtml = `<span class="px-2 py-1 rounded-full text-[12px] font-medium ${badgeClass}">${displayStatus}</span>`;
         }
 
         let actionsHtml = `<span class="text-on-surface-variant text-sm">None</span>`;
-        if (isRunning) {
-            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-label-sm font-medium transition-colors">Cancel</button>`;
+        if (job.status === 'SCRAPED' || job.status === 'PARTIALLY_ANALYZED') {
+            const btnText = job.status === 'PARTIALLY_ANALYZED' ? 'Retry LLM Analysis' : 'Analyze with LLM';
+            actionsHtml = `<button onclick="analyzeJob('${job.run_id}')" class="px-3 py-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
+        } else if (isQueued) {
+            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-label-sm font-medium transition-colors">Cancel Queue</button>`;
         }
 
         let tr = document.getElementById(`job-row-${job.run_id}`);
@@ -1509,7 +1534,7 @@ function renderJobsQueue(jobs) {
         `;
     });
 
-    const hasActiveJobs = jobs.some(j => j.status === 'STARTED' || j.status === 'STARTING' || j.status === 'QUEUED');
+    const hasActiveJobs = jobs.some(j => ['STARTED', 'STARTING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPED'].includes(j.status));
     const jobsTabActive = !document.getElementById('view-jobs').classList.contains('hidden');
     
     if (hasActiveJobs) {
@@ -1530,5 +1555,16 @@ function renderJobsQueue(jobs) {
             clearInterval(jobsPollInterval);
             jobsPollInterval = null;
         }
+    }
+}
+
+async function analyzeJob(executionId) {
+    try {
+        const res = await fetch(`/api/jobs/${executionId}/analyze`, { method: 'POST' });
+        if (res.ok) {
+            fetchJobs();
+        }
+    } catch (e) {
+        console.error(e);
     }
 }
