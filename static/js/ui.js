@@ -24,23 +24,123 @@ function handleKeyPress(e) {
     if (e.key === 'Enter') fetchDiscovery();
 }
 
+let extractionTimer = null;
+let extractionStartTime = 0;
+let fakeProgressInterval = null;
+let currentProgressPct = 0;
+
 function updateStatus(message) {
-    const statusBox = document.getElementById('statusBox');
-    if (!statusBox) return;
+    const container = document.getElementById('progressContainer');
+    const statusText = document.getElementById('progressStatusText');
+    const timerEl = document.getElementById('progressTimer');
+    const bar = document.getElementById('progressBar');
+    const spinner = document.getElementById('progressSpinner');
+    if (!container) return;
 
-    statusBox.style.display = 'block';
+    if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        setTimeout(() => container.classList.remove('opacity-0'), 10);
+        
+        currentProgressPct = 0;
+        if (bar) {
+            bar.classList.replace('bg-red-500', 'bg-primary');
+            bar.classList.replace('bg-green-500', 'bg-primary');
+            bar.style.width = '0%';
+        }
+        if (spinner) {
+            spinner.classList.add('animate-spin');
+            spinner.textContent = 'sync';
+            spinner.classList.remove('text-green-500', 'text-red-500');
+            spinner.classList.add('text-primary');
+        }
+        
+        if (extractionTimer) clearInterval(extractionTimer);
+        extractionStartTime = Date.now();
+        if (timerEl) timerEl.textContent = '00:00';
+        extractionTimer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - extractionStartTime) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+        }, 1000);
+        
+        if (fakeProgressInterval) clearInterval(fakeProgressInterval);
+        fakeProgressInterval = setInterval(() => {
+            if (currentProgressPct < 85) {
+                currentProgressPct += Math.random() * 8;
+                if (currentProgressPct > 85) currentProgressPct = 85;
+                if (bar) bar.style.width = `${currentProgressPct}%`;
+            }
+        }, 600);
+    }
 
+    let parsedMsg = message;
     if (message.includes('Resolving URL for:') || message.includes('Resolving URL')) {
         const title = message.replace(/^.*Resolving URL for:\s*/i, '').replace(/\.\.\.$/, '').trim();
-        statusBox.innerHTML = `⏳ Analizando: ${title}...`;
-    } else if (message.includes('All processing complete!')) {
-        statusBox.innerHTML = `✅ Análisis completado`;
-        setTimeout(() => {
-            statusBox.style.display = 'none';
-        }, 3000);
-    } else {
-        statusBox.innerHTML = message;
+        parsedMsg = `Analyzing: ${title}...`;
     }
+    
+    if (statusText) statusText.textContent = parsedMsg;
+
+    const isComplete = message.includes('complete') || message.includes('éxito') || message.includes('Error') || message.includes('❌');
+    if (isComplete) {
+        if (extractionTimer) clearInterval(extractionTimer);
+        if (fakeProgressInterval) clearInterval(fakeProgressInterval);
+        if (bar) bar.style.width = '100%';
+        
+        const isError = message.includes('Error') || message.includes('❌');
+        
+        if (spinner) {
+            spinner.classList.remove('animate-spin', 'text-primary');
+            if (isError) {
+                spinner.textContent = 'error';
+                spinner.classList.add('text-red-500');
+                if (bar) bar.classList.replace('bg-primary', 'bg-red-500');
+            } else {
+                spinner.textContent = 'check_circle';
+                spinner.classList.add('text-green-500');
+                if (bar) bar.classList.replace('bg-primary', 'bg-green-500');
+            }
+        }
+        
+        setTimeout(() => {
+            container.classList.add('opacity-0');
+            setTimeout(() => {
+                container.classList.add('hidden');
+                if (bar) {
+                    bar.style.width = '0%';
+                    bar.classList.replace('bg-red-500', 'bg-primary');
+                    bar.classList.replace('bg-green-500', 'bg-primary');
+                }
+            }, 500);
+        }, 1500);
+    }
+}
+
+function renderSkeletons() {
+    const feed = document.getElementById('articlesFeed');
+    const list = document.getElementById('fullFeedList');
+    
+    const topSkeleton = `
+        <article class="animate-pulse flex flex-col w-full group cursor-pointer pt-md border-t border-outline-variant/20 first:border-0 first:pt-0">
+            <div class="bg-gray-200 dark:bg-gray-700 h-44 rounded-lg mb-3 w-full"></div>
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+            <div class="h-3 bg-gray-200 rounded w-1/4"></div>
+        </article>`;
+    
+    const listSkeleton = `
+        <div class="flex items-start gap-3 p-md animate-pulse w-full">
+            <div class="flex-1 min-w-0">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/4"></div>
+            </div>
+            <div class="w-14 h-14 rounded-lg bg-gray-200 flex-shrink-0"></div>
+        </div>`;
+
+    if (feed) feed.innerHTML = topSkeleton.repeat(2);
+    if (list) list.innerHTML = listSkeleton.repeat(5);
 }
 
 function resetUI(mode) {
@@ -52,23 +152,19 @@ function resetUI(mode) {
     collectedArticles = [];
     currentFilter = null;
 
-    // Status
-    const statusBox = document.getElementById('statusBox');
-    statusBox.style.display = 'block';
-    statusBox.innerHTML = '';
+
 
     // Dashboard
     const dashboard = document.getElementById('dashboard');
     dashboard.style.display = 'flex';
-    document.getElementById('articlesFeed').innerHTML = '';
     document.getElementById('actionButtons').style.display = 'none';
     feedCurrentPage = 0;
     feedSelectedSources = new Set();
     feedSelectedStates = new Set();
     analyticsSelectedStates  = new Set();
     analyticsSelectedSources = new Set();
-    const fullFeedList = document.getElementById('fullFeedList');
-    if (fullFeedList) fullFeedList.innerHTML = '';
+    
+    renderSkeletons();
     const feedInfo = document.getElementById('feedPaginationInfo');
     if (feedInfo) feedInfo.textContent = '';
     const subtitleEl = document.getElementById('news-summary-subtitle');

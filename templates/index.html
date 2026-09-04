@@ -185,7 +185,23 @@
 </div>
 </header>
 
-<div class="status-box text-center py-2 bg-blue-50 text-blue-800 font-medium hidden" id="statusBox"></div>
+<div id="progressContainer" class="hidden max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-4 transition-opacity duration-500 opacity-0">
+    <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px] animate-spin" id="progressSpinner">sync</span>
+                <span id="progressStatusText" class="text-label-md font-medium text-on-surface">Initializing...</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-surface-container px-3 py-1.5 rounded-md">
+                <span class="material-symbols-outlined text-on-surface-variant text-[16px]">timer</span>
+                <span id="progressTimer" class="text-label-sm font-mono text-on-surface-variant">00:00</span>
+            </div>
+        </div>
+        <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-primary transition-all duration-300 ease-out w-0"></div>
+        </div>
+    </div>
+</div>
 
 <nav class="bg-surface border-b border-outline-variant/30">
 <div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
@@ -204,10 +220,10 @@
 </div>
 </nav>
 
-<main id="dashboard" class="max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-lg">
+<main id="dashboard" class="w-full max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-lg">
     
     <!-- TAB 1: MAIN SEARCH (News Feed) -->
-    <div id="view-main" class="flex flex-col gap-md">
+    <div id="view-main" class="flex flex-col gap-md w-full">
         <!-- Full-width Header -->
         <div class="mb-2">
             <h1 class="text-headline-lg font-headline-lg text-on-background mb-1">News Summary</h1>
@@ -215,21 +231,21 @@
         </div>
 
         <!-- 2-Column Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start w-full">
             <!-- Left: Top Stories (2 most recent) -->
-            <div class="lg:col-span-8 flex flex-col gap-lg">
-                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="lg:col-span-8 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 w-full h-full">
                     <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2 mb-md">
                         Recent News <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
                     </h2>
-                    <div id="articlesFeed" class="flex flex-col gap-md">
+                    <div id="articlesFeed" class="flex flex-col gap-md w-full">
                         <!-- Top 2 cards render here -->
                     </div>
                 </div>
             </div>
             <!-- Right: Full paginated feed + filters -->
-            <div class="lg:col-span-4 flex flex-col gap-lg">
-                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col" style="max-height: 80vh;">
+            <div class="lg:col-span-4 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col w-full" style="max-height: 80vh;">
                     <div class="p-md border-b border-outline-variant/20 flex items-center justify-between flex-shrink-0">
                         <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2">
                             Full Feed

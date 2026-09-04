@@ -100,10 +100,6 @@ async function fetchDiscovery() {
 
         //updateStatus(`✅ ${data.length} artículos encontrados.`);
         updateStatus(`Artículos recolectados con éxito.`);
-        setTimeout(() => {
-            const statusBox = document.getElementById('statusBox');
-            if (statusBox) statusBox.style.display = 'none';
-        }, 3000);
 
         if (data.length === 0) {
             renderTopStories([], "No articles found matching your criteria.");
