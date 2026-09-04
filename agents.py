@@ -6,6 +6,7 @@ import random
 import asyncio
 import logging
 import hashlib
+import uuid
 from PIL import Image
 from zoneinfo import ZoneInfo
 import urllib.parse
@@ -14,6 +15,7 @@ from datetime import datetime
 from xml.etree import ElementTree
 from concurrent.futures import ThreadPoolExecutor
 
+import asyncpg
 import aiosqlite
 from bs4 import BeautifulSoup
 from tenacity import retry, wait_exponential, stop_after_attempt
@@ -80,57 +82,8 @@ def extract_image_url(html: str) -> str:
 
 async def download_and_optimize_image(session: AsyncSession, image_url: str, article_title: str = "Desconocido") -> str:
     if not image_url or not isinstance(image_url, str) or not image_url.startswith('http'):
-        logger.warning(f"⚠️ El artículo '{article_title}' no incluye una URL de imagen válida en el RSS/HTML.")
         return ""
-    try:
-        images_dir = os.path.join(BASE_DIR, "static", "news_images")
-        os.makedirs(images_dir, exist_ok=True)
-        
-        url_hash = hashlib.md5(image_url.encode('utf-8')).hexdigest()
-        filename = f"{url_hash}.webp"
-        filepath = os.path.join(images_dir, filename)
-        relative_path = f"/static/news_images/{filename}"
-        
-        if os.path.exists(filepath):
-            return relative_path
-
-        response = None
-        for attempt in range(1, 4):
-            try:
-                response = await session.get(image_url, timeout=26)
-                if response.status_code == 200:
-                    break
-                elif attempt < 3:
-                    await asyncio.sleep(0.4 * attempt)
-            except Exception as img_err:
-                if attempt < 3:
-                    await asyncio.sleep(0.4 * attempt)
-                else:
-                    logger.warning(f"⚠️ [Image Download Retry Failed] '{article_title}' ({image_url}): {img_err}")
-                    return ""
-
-        if not response or response.status_code != 200:
-            return ""
-            
-        from io import BytesIO
-        img = Image.open(BytesIO(response.content))
-        
-        width, height = img.size
-        if width > 800:
-            new_width = 800
-            new_height = int((height * 800) / width)
-            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            
-        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-            img.save(filepath, "WEBP", quality=80)
-        else:
-            img = img.convert("RGB")
-            img.save(filepath, "WEBP", quality=80)
-            
-        return relative_path
-    except Exception as e:
-        logger.error(f"❌ Error descargando imagen para '{article_title}' ({image_url}): {e}")
-        return ""
+    return image_url.strip()
 
 
 def fetch_url_sync(url: str, timeout: int = 15) -> dict:
@@ -466,6 +419,8 @@ class OrchestratorAgent:
         self.nlp = NLPAgent()
         self.db = None
         self.db_lock = asyncio.Lock()
+        self.history_db = None
+        self.history_lock = asyncio.Lock()
         
         self.playwright_semaphore = asyncio.Semaphore(1)
         self.scraper_semaphore = asyncio.Semaphore(10)
@@ -505,8 +460,42 @@ class OrchestratorAgent:
             pass
         await self.db.commit()
 
+    async def init_history_db(self):
+        try:
+            db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@localhost:5432/history_db')
+            self.history_db = await asyncpg.create_pool(db_url)
+            
+            async with self.history_db.acquire() as conn:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS search_executions (
+                        execution_id TEXT PRIMARY KEY,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        search_term TEXT,
+                        filters JSONB
+                    )
+                """)
+                
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS articles (
+                        article_id TEXT PRIMARY KEY,
+                        execution_id TEXT,
+                        title TEXT,
+                        url TEXT,
+                        date TEXT,
+                        source TEXT,
+                        geodata JSONB,
+                        image_url TEXT,
+                        FOREIGN KEY(execution_id) REFERENCES search_executions(execution_id)
+                    )
+                """)
+                await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url TEXT;")
+        except Exception as e:
+            logger.error(f"⚠️ [Postgres Init Error]: {e}")
+            raise
+
     async def close(self):
         if self.db: await self.db.close()
+        if self.history_db: await self.history_db.close()
 
     async def fetch_discovery(self, search_params):
         if not self.db:
@@ -574,9 +563,10 @@ class OrchestratorAgent:
                         if not image_url and pw_image:
                             image_url = pw_image
                     
-                    # Download and optimize image
-                    local_img = await download_and_optimize_image(session, image_url, article_title=title)
-                    a['image'] = local_img if local_img else None
+                    # Keep raw remote image URL (no local filesystem download)
+                    remote_img = image_url or a.get("_temp_image_url") or ""
+                    a['image'] = remote_img.strip() if remote_img else None
+                    a['image_url'] = a['image']
                     a['states'] = []
                     a['scraped_text'] = text
                             
@@ -590,7 +580,8 @@ class OrchestratorAgent:
                 except Exception as e:
                     logger.warning(f"⚠️ [process_article Error] Omitiendo noticia '{title}'. Razón: {e}")
                     a['real_url'] = a.get('real_url', a['url'])
-                    a['image'] = None
+                    a['image'] = a.get("_temp_image_url") or None
+                    a['image_url'] = a['image']
                     a['states'] = []
                     a['scraped_text'] = ""
                     try:
@@ -632,6 +623,8 @@ class OrchestratorAgent:
     async def map_stream(self, search_params):
         if not self.db:
             await self.init_cache()
+        if not self.history_db:
+            await self.init_history_db()
             
         target_count = min(int(search_params.get("nqueries", 15)), 100)
         query_key = search_params.get("query", "")
@@ -658,6 +651,7 @@ class OrchestratorAgent:
                 "real_url": r[1] if r[1] else r[0],
                 "states": json.loads(r[2]) if r[2] else [],
                 "image": r[3],
+                "image_url": r[3],
                 "scraped_text": r[4] if r[4] else "",
                 "title": r[5],
                 "source": r[6],
@@ -746,6 +740,35 @@ class OrchestratorAgent:
                     "text": f"Yielded article {short_title} with fallback"
                 }
                 
+        # History Persistence
+        try:
+            execution_id = str(uuid.uuid4())
+            search_term = search_params.get("query", "")
+            filters_json = json.dumps(search_params)
+            
+            async with self.history_lock:
+                async with self.history_db.acquire() as conn:
+                    async with conn.transaction():
+                        await conn.execute(
+                            "INSERT INTO search_executions (execution_id, search_term, filters) VALUES ($1, $2, $3::jsonb)",
+                            execution_id, search_term, filters_json
+                        )
+                        
+                        for a in articles:
+                            r_url = a.get("real_url") or a.get("url") or ""
+                            article_id = hashlib.md5(r_url.encode("utf-8")).hexdigest()
+                            raw_img = a.get("image_url") or a.get("image") or ""
+                            await conn.execute(
+                                """
+                                INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url) 
+                                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) 
+                                ON CONFLICT (article_id) DO UPDATE SET image_url = EXCLUDED.image_url
+                                """,
+                                article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), json.dumps(a.get("states", [])), raw_img
+                            )
+        except Exception as e:
+            logger.error(f"⚠️ [History Persistence Error]: {e}")
+
         elapsed = time.time() - start_time
         yield {
             "type": "update",
@@ -757,3 +780,44 @@ class OrchestratorAgent:
             "elapsed_time": round(elapsed, 2),
             "text": "Complete"
         }
+
+    async def get_history_list(self):
+        if not self.history_db:
+            await self.init_history_db()
+        
+        async with self.history_db.acquire() as conn:
+            records = await conn.fetch("""
+                SELECT 
+                    se.execution_id, 
+                    se.timestamp, 
+                    se.search_term, 
+                    se.filters, 
+                    COUNT(a.article_id) as total_articles 
+                FROM search_executions se 
+                LEFT JOIN articles a ON se.execution_id = a.execution_id 
+                GROUP BY se.execution_id, se.timestamp, se.search_term, se.filters 
+                ORDER BY se.timestamp DESC
+            """)
+            return [dict(r) for r in records]
+
+    async def get_history_detail(self, execution_id):
+        if not self.history_db:
+            await self.init_history_db()
+            
+        async with self.history_db.acquire() as conn:
+            exec_record = await conn.fetchrow(
+                "SELECT * FROM search_executions WHERE execution_id = $1", 
+                execution_id
+            )
+            if not exec_record:
+                return None
+                
+            articles = await conn.fetch(
+                "SELECT * FROM articles WHERE execution_id = $1", 
+                execution_id
+            )
+            
+            return {
+                "execution": dict(exec_record),
+                "articles": [dict(a) for a in articles]
+            }

@@ -117,6 +117,40 @@ function updateStatus(message) {
     }
 }
 
+function completeProgress(isError = false) {
+    const container = document.getElementById('progressContainer');
+    if (!container) return;
+    if (extractionTimer) clearInterval(extractionTimer);
+    if (fakeProgressInterval) clearInterval(fakeProgressInterval);
+    const bar = document.getElementById('progressBar');
+    const spinner = document.getElementById('progressSpinner');
+    if (bar) bar.style.width = '100%';
+    if (spinner) {
+        spinner.classList.remove('animate-spin', 'text-primary');
+        if (isError) {
+            spinner.textContent = 'error';
+            spinner.classList.add('text-red-500');
+            if (bar) bar.classList.replace('bg-primary', 'bg-red-500');
+        } else {
+            spinner.textContent = 'check_circle';
+            spinner.classList.add('text-green-500');
+            if (bar) bar.classList.replace('bg-primary', 'bg-green-500');
+        }
+    }
+    setTimeout(() => {
+        container.classList.add('opacity-0');
+        setTimeout(() => {
+            container.classList.add('hidden');
+            if (bar) {
+                bar.style.width = '0%';
+                bar.classList.replace('bg-red-500', 'bg-primary');
+                bar.classList.replace('bg-green-500', 'bg-primary');
+            }
+        }, 500);
+    }, 1500);
+}
+window.completeProgress = completeProgress;
+
 function renderSkeletons() {
     const feed = document.getElementById('articlesFeed');
     const list = document.getElementById('fullFeedList');
@@ -273,7 +307,7 @@ function renderTopStories(articles = null, emptyMessage = null) {
     if (recent[0]) {
         const a = recent[0];
         const url = currentMode === 'mapping' ? (a.real_url || a.url) : a.url;
-        const imgUrl = a.image || 'https://placehold.co/600x400/e2e8f0/475569?text=News+Image';
+        const imgUrl = a.image_url || a.image || 'https://placehold.co/600x400/e2e8f0/475569?text=News+Image';
         const hasStates = a.states && a.states.length > 0;
         const locationText = hasStates ? a.states.join(', ') : 'Sin localidad';
         const locationCls = hasStates ? 'text-tertiary font-medium' : 'text-on-surface-variant';
@@ -282,10 +316,11 @@ function renderTopStories(articles = null, emptyMessage = null) {
         card.className = 'group cursor-pointer';
         card.innerHTML = `
             <a href="${url}" target="_blank" class="block">
-                <div class="overflow-hidden rounded-xl mb-3 h-72">
+                <div class="overflow-hidden rounded-xl mb-3 h-72 bg-surface-container">
                     <img src="${imgUrl}"
                          alt="News" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                         onerror="this.src='https://placehold.co/600x400/e2e8f0/475569?text=News+Image'">
+                         loading="lazy"
+                         onerror="this.onerror=null; this.src='https://placehold.co/600x400/e2e8f0/475569?text=News+Image';">
                 </div>
                 <h3 class="text-title-md font-title-md text-on-background group-hover:text-primary-container transition-colors mb-1 leading-snug">${a.title}</h3>
                 <div class="flex items-center gap-3 text-label-md text-on-surface-variant mb-1">
@@ -499,7 +534,7 @@ function renderFullFeed() {
 
     pageItems.forEach(a => {
         const url = currentMode === 'mapping' ? (a.real_url || a.url) : a.url;
-        const thumb = a.image || 'https://placehold.co/100x100/e2e8f0/475569?text=News';
+        const thumb = a.image_url || a.image || 'https://placehold.co/100x100/e2e8f0/475569?text=News';
         const hasStates = a.states && a.states.length > 0;
         const locationText = hasStates ? a.states.join(', ') : 'Sin localidad';
         const locationCls = hasStates ? 'text-tertiary font-medium' : 'text-on-surface-variant';
@@ -517,7 +552,7 @@ function renderFullFeed() {
                 <span class="text-xs ${locationCls} mt-0.5 block truncate">${locationText}</span>
             </div>
             <div class="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container">
-                <img src="${thumb}" alt="" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100/e2e8f0/475569?text=News'">
+                <img src="${thumb}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/100x100/e2e8f0/475569?text=News';">
             </div>`;
         list.appendChild(item);
     });
@@ -1009,45 +1044,54 @@ function switchTab(tabId) {
         'main': document.getElementById('view-main'),
         'analytics': document.getElementById('view-analytics'),
         'docs': document.getElementById('view-docs'),
-        'manual': document.getElementById('view-manual')
+        'manual': document.getElementById('view-manual'),
+        'history': document.getElementById('view-history')
     };
     
     const tabs = {
         'main': document.getElementById('tab-main'),
         'analytics': document.getElementById('tab-analytics'),
         'docs': document.getElementById('tab-docs'),
-        'manual': document.getElementById('tab-manual')
+        'manual': document.getElementById('tab-manual'),
+        'history': document.getElementById('tab-history')
     };
 
     // Hide all views, show selected
-    Object.keys(views).forEach(key => {
-        if (views[key]) {
+    Object.values(views).forEach(v => {
+        if(v) v.classList.add('hidden');
+    });
+    if(views[tabId]) views[tabId].classList.remove('hidden');
+
+    // Update active state on buttons (move underline and update text styling)
+    Object.keys(tabs).forEach(key => {
+        const t = tabs[key];
+        if (t) {
             if (key === tabId) {
-                views[key].classList.remove('hidden');
+                t.classList.add('text-primary', 'border-primary', 'font-medium');
+                t.classList.remove('text-on-surface-variant', 'border-transparent', 'bg-primary-container/10');
             } else {
-                views[key].classList.add('hidden');
+                t.classList.remove('text-primary', 'border-primary', 'font-medium', 'bg-primary-container/10');
+                t.classList.add('text-on-surface-variant', 'border-transparent');
             }
         }
     });
     
-    // Update tab styles
-    Object.keys(tabs).forEach(key => {
-        if (tabs[key]) {
-            if (key === tabId) {
-                tabs[key].classList.add('text-primary', 'border-b-2', 'border-primary');
-                tabs[key].classList.remove('text-on-surface-variant', 'hover:text-primary');
-            } else {
-                tabs[key].classList.add('text-on-surface-variant', 'hover:text-primary');
-                tabs[key].classList.remove('text-primary', 'border-b-2', 'border-primary');
-            }
-        }
-    });
+    // Trigger history load if history tab is selected
+    if (tabId === 'history' && typeof loadHistory === 'function') {
+        loadHistory();
+    }
 
     if (tabId === 'analytics') {
         // Populate toolbar dropdowns with current session data
         if (typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
         // Ensure Leaflet map resizes correctly when becoming visible
-        if (typeof initMap === 'function') initMap();
+        if (typeof initMap === 'function') initMap(true);
+        if (typeof loadMapForCountry === 'function' && typeof geoJsonData !== 'undefined' && !geoJsonData) {
+            const country = document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx';
+            loadMapForCountry(country);
+        } else if (typeof renderChoropleth === 'function') {
+            renderChoropleth();
+        }
         if (typeof map !== 'undefined' && map !== null) {
             setTimeout(() => {
                 map.invalidateSize();
@@ -1064,18 +1108,27 @@ async function initCountrySelector() {
         const res = await fetch('/api/available-maps');
         const maps = await res.json();
         
-        container.innerHTML = maps.map(m => `
+        container.innerHTML = maps.map((m, idx) => `
             <label class="flex-1 text-center cursor-pointer relative">
-                <input type="radio" name="countryToggle" value="${m.key}" class="peer sr-only">
+                <input type="radio" name="countryToggle" value="${m.key}" class="peer sr-only" ${m.key === 'mx' || idx === 0 ? 'checked' : ''}>
                 <div class="py-1 px-2 text-sm rounded-md peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-sm text-on-surface-variant font-medium transition-all">
                     ${m.country_name}
                 </div>
             </label>
         `).join('');
 
-        // Remove error pulse when interacted
-        container.addEventListener('change', () => {
+        // Automatically load GeoJSON map for default selected country
+        const defaultCountry = document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx';
+        if (typeof loadMapForCountry === 'function') {
+            loadMapForCountry(defaultCountry);
+        }
+
+        // Remove error pulse and update map when country changes
+        container.addEventListener('change', (e) => {
             container.classList.remove('border-red-500', 'ring-2', 'ring-red-500', 'animate-shake');
+            if (e.target && e.target.name === 'countryToggle' && typeof loadMapForCountry === 'function') {
+                loadMapForCountry(e.target.value);
+            }
         });
     } catch (e) {
         console.error("Failed to load maps config", e);
@@ -1126,3 +1179,204 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Leaflet map immediately so tiles load before any fetch
     if (typeof initMap === 'function') initMap();
 });
+// ============================================
+// HISTORY VIEWER
+// ============================================
+let historyData = [];
+
+async function loadHistory() {
+    try {
+        const response = await fetch('/api/history');
+        if (!response.ok) throw new Error('Failed to fetch history');
+        historyData = await response.json();
+        renderHistoryTable();
+    } catch (e) {
+        console.error(e);
+        const tbody = document.getElementById('historyTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-error">Failed to load history</td></tr>';
+    }
+}
+
+function renderHistoryTable() {
+    const tbody = document.getElementById('historyTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    const searchInput = document.getElementById('historySearchInput');
+    const filterText = (searchInput ? searchInput.value : '').toLowerCase();
+    
+    const filtered = historyData.filter(h => 
+        (h.search_term || '').toLowerCase().includes(filterText) ||
+        JSON.stringify(h.filters || {}).toLowerCase().includes(filterText)
+    );
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">No history records found</td></tr>';
+        return;
+    }
+    
+    filtered.forEach(run => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors";
+        
+        let filtersStr = '';
+        try {
+            const f = typeof run.filters === 'string' ? JSON.parse(run.filters) : run.filters;
+            if(f) {
+                filtersStr = Object.entries(f).map(([k,v]) => v ? '<span class="inline-block bg-surface-container-high px-2 py-0.5 rounded text-xs mr-1">' + k + ':' + v + '</span>' : '').join('');
+            }
+        } catch(e) {}
+        
+        const dateStr = run.timestamp ? new Date(run.timestamp).toLocaleString() : 'N/A';
+        
+        tr.innerHTML = `
+            <td class="py-2 px-3 align-middle">${dateStr}</td>
+            <td class="py-2 px-3 align-middle font-medium">${run.search_term || ''}</td>
+            <td class="py-2 px-3 align-middle">${filtersStr}</td>
+            <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
+            <td class="py-2 px-3 align-middle text-right">
+                <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View">
+                    <span class="material-symbols-outlined text-[18px]">visibility</span>
+                </button>
+                <button onclick="exportHistory('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded" title="Export JSON">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    // Apply local storage column visibility
+    const stored = localStorage.getItem('historyCols');
+    if (stored) {
+        const states = JSON.parse(stored);
+        states.forEach((visible, i) => {
+            const cb = document.querySelector('#historyColumnToggle input:nth-child(' + (i+1) + ')');
+            if (cb) cb.checked = visible;
+            updateHistoryCols(i, false);
+        });
+    }
+}
+
+window.filterHistoryTable = renderHistoryTable;
+
+window.toggleHistoryColumns = function() {
+    const div = document.getElementById('historyColumnToggle');
+    if (div) div.classList.toggle('hidden');
+};
+
+window.updateHistoryCols = function(colIdx, save = true) {
+    const table = document.getElementById('historyTable');
+    if (!table) return;
+    
+    let isVisible = true;
+    const labels = document.querySelectorAll('#historyColumnToggle label input');
+    if (labels && labels[colIdx]) {
+        isVisible = labels[colIdx].checked;
+    }
+    
+    const trs = table.querySelectorAll('tr');
+    trs.forEach(tr => {
+        const cells = tr.children;
+        if (cells.length > colIdx) {
+            cells[colIdx].style.display = isVisible ? '' : 'none';
+        }
+    });
+    
+    if (save) {
+        const states = Array.from(labels).map(cb => cb.checked);
+        localStorage.setItem('historyCols', JSON.stringify(states));
+    }
+};
+
+window.viewExecution = async function(execution_id) {
+    updateStatus('Loading execution ' + execution_id + '...');
+    try {
+        const response = await fetch('/api/history/' + execution_id);
+        if (!response.ok) throw new Error('Execution load failed');
+        const data = await response.json();
+        
+        // Reset local statistics and analytics state
+        totalArticles = 0;
+        uniqueStates = new Set();
+        stateFrequency = {};
+        sourceFrequency = {};
+        if (typeof resetAnalytics === 'function') resetAnalytics();
+        if (typeof resetMapState === 'function') resetMapState();
+
+        const rawArticles = data.articles || [];
+        collectedArticles = rawArticles.map(a => {
+            let states = [];
+            if (a.geodata) {
+                states = typeof a.geodata === 'string' ? JSON.parse(a.geodata) : a.geodata;
+            } else if (a.states) {
+                states = typeof a.states === 'string' ? JSON.parse(a.states) : a.states;
+            }
+            const remoteImg = a.image_url || a.image || null;
+            return {
+                ...a,
+                image: remoteImg,
+                image_url: remoteImg,
+                states: Array.isArray(states) ? states : []
+            };
+        });
+
+        // Ensure GeoJSON map is loaded for the execution's target country
+        let country = 'mx';
+        try {
+            const f = typeof data.execution?.filters === 'string' ? JSON.parse(data.execution.filters) : data.execution?.filters;
+            if (f && f.country) country = f.country;
+        } catch(e) {}
+        
+        if (typeof loadMapForCountry === 'function') {
+            await loadMapForCountry(country);
+        }
+
+        // Hydrate KPIs, map and charts with historical data
+        collectedArticles.forEach(a => {
+            if (typeof updateKPIs === 'function') updateKPIs(a);
+            if (typeof updateMap === 'function') updateMap(a.states);
+            if (typeof updateSourcesBar === 'function') updateSourcesBar(a.source);
+            if (typeof updateStatesBar === 'function') updateStatesBar(a.states);
+            if (typeof updateTimeline === 'function') updateTimeline(a.date);
+        });
+
+        // Unhide action buttons
+        const exportBtn = document.getElementById('exportExcelBtn');
+        if (exportBtn) exportBtn.classList.remove('hidden');
+        const mapearBtn = document.getElementById('mapearBtn');
+        if (mapearBtn) mapearBtn.classList.remove('hidden');
+
+        switchTab('main');
+        renderTopStories();
+        renderFullFeed();
+
+        if (typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
+        
+        updateStatus('Loaded ' + collectedArticles.length + ' articles from history (complete).');
+    } catch (e) {
+        console.error(e);
+        updateStatus('❌ Failed to load execution');
+    }
+};
+
+window.exportHistory = async function(execution_id) {
+    try {
+        const response = await fetch('/api/history/' + execution_id);
+        if (!response.ok) throw new Error('Export failed');
+        const data = await response.json();
+        
+        const blob = new Blob([JSON.stringify(data.articles, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'execution_' + execution_id + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error(e);
+        alert('Failed to export history.');
+    }
+};

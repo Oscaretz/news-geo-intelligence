@@ -7,7 +7,7 @@ function buildQueryString() {
     const qsite = document.getElementById('domainInput')?.value ?? '';
     const qrangedate = document.getElementById('dateRange')?.value ?? '';
     const nqueries = document.getElementById('nqueriesInput')?.value ?? '';
-    const country = document.querySelector('input[name="countryToggle"]:checked')?.value ?? '';
+    const country = (document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx').trim();
 
     return `?query=${encodeURIComponent(query.trim())}` +
            `&qoption=${encodeURIComponent(qoption.trim())}` +
@@ -15,7 +15,7 @@ function buildQueryString() {
            `&qsite=${encodeURIComponent(qsite.trim())}` +
            `&qrangedate=${encodeURIComponent(qrangedate.trim())}` +
            `&nqueries=${encodeURIComponent(nqueries.trim())}` +
-           `&country=${encodeURIComponent(country.trim())}`;
+           `&country=${encodeURIComponent(country)}`;
 }
 
 // ============================================
@@ -94,8 +94,9 @@ async function fetchDiscovery() {
         const response = await fetch(`/api/discovery${qs}`);
         const data = await response.json();
 
+        const selectedCountry = countryChecked?.value || 'mx';
         if (typeof loadMapForCountry === 'function') {
-            await loadMapForCountry(countryChecked.value);
+            await loadMapForCountry(selectedCountry);
         }
 
         //updateStatus(`✅ ${data.length} artículos encontrados.`);
@@ -142,8 +143,9 @@ async function startStreamMapping() {
     
     // Ensure map and GeoJSON are loaded for the selected country before streaming starts
     const countryChecked = document.querySelector('input[name="countryToggle"]:checked');
-    if (countryChecked && typeof loadMapForCountry === 'function') {
-        await loadMapForCountry(countryChecked.value);
+    const selectedCountry = countryChecked?.value || 'mx';
+    if (typeof loadMapForCountry === 'function') {
+        await loadMapForCountry(selectedCountry);
     }
     
     const qs = buildQueryString();
@@ -208,7 +210,7 @@ async function downloadExcel() {
         "URL Real": article.real_url || '',
         "Fecha de Publicación": article.date || '',
         "Estados Extraídos": article.states && article.states.length > 0 ? article.states.join(', ') : 'Sin localidad',
-        "Ruta de Imagen": article.image ? article.image.split('/').pop().split('\\').pop() : ''
+        "URL de Imagen": article.image_url || article.image || ''
     }));
 
     const payload = {

@@ -173,6 +173,47 @@ def download_excel():
         }
     )
 
+@app.route('/api/history', methods=['GET'])
+def get_history_list():
+    async def _fetch():
+        orchestrator = OrchestratorAgent()
+        try:
+            return await orchestrator.get_history_list()
+        finally:
+            await orchestrator.close()
+
+    try:
+        history = asyncio.run(_fetch())
+        # Convert datetime objects to string for JSON serialization
+        for run in history:
+            if 'timestamp' in run and run['timestamp']:
+                run['timestamp'] = run['timestamp'].isoformat()
+        return jsonify(history)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/history/<execution_id>', methods=['GET'])
+def get_history_detail(execution_id):
+    async def _fetch():
+        orchestrator = OrchestratorAgent()
+        try:
+            return await orchestrator.get_history_detail(execution_id)
+        finally:
+            await orchestrator.close()
+
+    try:
+        detail = asyncio.run(_fetch())
+        if not detail:
+            return jsonify({"error": "Execution not found"}), 404
+            
+        # Convert datetime
+        if 'timestamp' in detail['execution'] and detail['execution']['timestamp']:
+            detail['execution']['timestamp'] = detail['execution']['timestamp'].isoformat()
+            
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     try:
         from dotenv import load_dotenv

@@ -43,6 +43,7 @@ function initMap(force = false) {
 }
 
 async function loadMapForCountry(countryKey) {
+    const key = (countryKey && typeof countryKey === 'string' && countryKey.trim()) ? countryKey.trim() : 'mx';
     if (!map) initMap(true);
     
     // Ensure map size is updated before performing animations
@@ -51,7 +52,7 @@ async function loadMapForCountry(countryKey) {
     try {
         const fullConfigRes = await fetch('/static/maps/map_config.json');
         const fullConfig = await fullConfigRes.json();
-        currentCountryConfig = fullConfig[countryKey];
+        currentCountryConfig = fullConfig[key] || fullConfig['mx'];
 
         if (map && currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
             const size = map.getSize();
@@ -63,14 +64,18 @@ async function loadMapForCountry(countryKey) {
             }
         }
 
-        const geoRes = await fetch(`/static/maps/${countryKey}_states.geojson`);
+        const geoRes = await fetch(`/static/maps/${key}_states.geojson`);
+        if (!geoRes.ok) {
+            console.error(`Failed to fetch geojson for ${key}: HTTP ${geoRes.status}`);
+            return;
+        }
         geoJsonData = await geoRes.json();
         
         if (map) {
             createGeoJsonLayer();
         }
     } catch (e) {
-        console.error("Error loading map for country:", countryKey, e);
+        console.error("Error loading map for country:", key, e);
     }
 }
 
@@ -206,10 +211,16 @@ function updateMap(states) {
         const matched = matchGeoJsonState(state);
         if (matched) {
             mapStateCounts[matched] = (mapStateCounts[matched] || 0) + 1;
+        } else {
+            mapStateCounts[state] = (mapStateCounts[state] || 0) + 1;
         }
     });
 
-    renderChoropleth();
+    if (!geojsonLayer && geoJsonData && map) {
+        createGeoJsonLayer();
+    } else {
+        renderChoropleth();
+    }
 }
 
 function renderChoropleth() {

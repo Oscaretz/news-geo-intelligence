@@ -205,16 +205,19 @@
 
 <nav class="bg-surface border-b border-outline-variant/30">
 <div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
-<button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2" onclick="switchTab('main')">
+<button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2 transition-all" onclick="switchTab('main')">
 <span class="text-body-md font-body-md">Main Search</span>
 </button>
-<button id="tab-analytics" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
+<button id="tab-analytics" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
 <span class="text-body-md font-body-md">Analytics &amp; Maps</span>
 </button>
-<button id="tab-docs" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
+<button id="tab-history" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('history')">
+<span class="text-body-md font-body-md">History</span>
+</button>
+<button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
 <span class="text-body-md font-body-md">Technical Documentation</span>
 </button>
-<button id="tab-manual" class="text-on-surface-variant hover:text-primary transition-colors pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
+<button id="tab-manual" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
 <span class="text-body-md font-body-md">User Manual</span>
 </button>
 </div>
@@ -448,6 +451,46 @@
         <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
             <h2 class="text-title-md font-title-md text-primary-container mb-md">User Manual</h2>
             <div class="text-body-md text-on-surface-variant">Content for User Manual will be displayed here.</div>
+        </div>
+    </div>
+    
+    <!-- TAB 5: HISTORY -->
+    <div id="view-history" class="hidden flex flex-col gap-lg">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md">
+                <h2 class="text-title-md font-title-md text-primary-container">Execution History</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="historySearchInput" onkeyup="filterHistoryTable()" placeholder="Search history..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    <button onclick="toggleHistoryColumns()" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-md text-on-surface-variant transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[18px]">view_column</span> Columns
+                    </button>
+                </div>
+            </div>
+            
+            <div id="historyColumnToggle" class="hidden mb-4 p-3 bg-surface-container rounded-md flex flex-wrap gap-4 text-sm text-on-surface-variant">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(0)" class="accent-primary"> Date</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> Search Term</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> Filters</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> Articles</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> Actions</label>
+            </div>
+
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse" id="historyTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant">
+                            <th class="py-2 px-3">Date/Time</th>
+                            <th class="py-2 px-3">Search Term</th>
+                            <th class="py-2 px-3">Filters</th>
+                            <th class="py-2 px-3 text-center">Total Articles</th>
+                            <th class="py-2 px-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="text-body-md text-on-surface">
+                        <!-- History rows injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </main>

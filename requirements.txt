@@ -14,3 +14,5 @@ playwright
 trafilatura>=1.12.0
 llmlingua>=0.2.0
 Pillow
+asyncpg
+psycopg2-binary
