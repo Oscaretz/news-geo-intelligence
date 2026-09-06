@@ -374,13 +374,22 @@ def get_history_list():
             await orchestrator.close()
 
     try:
+        import datetime
+        def to_iso(dt):
+            if not dt: return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt.isoformat()
+            
         history = asyncio.run(_fetch())
         # Convert datetime objects to string for JSON serialization
         for run in history:
             if 'timestamp' in run and run['timestamp']:
-                run['timestamp'] = run['timestamp'].isoformat()
+                run['timestamp'] = to_iso(run['timestamp'])
             if 'end_time' in run and run['end_time']:
-                run['end_time'] = run['end_time'].isoformat()
+                run['end_time'] = to_iso(run['end_time'])
+            if 'scraped_at' in run and run['scraped_at']:
+                run['scraped_at'] = to_iso(run['scraped_at'])
         return jsonify(history)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -395,13 +404,24 @@ def get_history_detail(execution_id):
             await orchestrator.close()
 
     try:
+        import datetime
+        def to_iso(dt):
+            if not dt: return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt.isoformat()
+
         detail = asyncio.run(_fetch())
         if not detail:
             return jsonify({"error": "Execution not found"}), 404
             
         # Convert datetime
         if 'timestamp' in detail['execution'] and detail['execution']['timestamp']:
-            detail['execution']['timestamp'] = detail['execution']['timestamp'].isoformat()
+            detail['execution']['timestamp'] = to_iso(detail['execution']['timestamp'])
+        if 'end_time' in detail['execution'] and detail['execution']['end_time']:
+            detail['execution']['end_time'] = to_iso(detail['execution']['end_time'])
+        if 'scraped_at' in detail['execution'] and detail['execution']['scraped_at']:
+            detail['execution']['scraped_at'] = to_iso(detail['execution']['scraped_at'])
             
         return jsonify(detail)
     except Exception as e:

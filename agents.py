@@ -498,6 +498,7 @@ class OrchestratorAgent:
                 """)
                 await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'COMPLETED';")
                 await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS scraped_at TIMESTAMP;")
                 
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
@@ -687,9 +688,9 @@ class OrchestratorAgent:
                         final_status = 'PAUSED_BLOCKED' if self.blocked_by_google else 'SCRAPED'
                         await conn.execute(
                             """
-                            INSERT INTO search_executions (execution_id, search_term, filters, status, end_time) 
-                            VALUES ($1, $2, $3::jsonb, $4, CURRENT_TIMESTAMP)
-                            ON CONFLICT (execution_id) DO UPDATE SET status = $4, end_time = CURRENT_TIMESTAMP
+                            INSERT INTO search_executions (execution_id, search_term, filters, status, end_time, scraped_at) 
+                            VALUES ($1, $2, $3::jsonb, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            ON CONFLICT (execution_id) DO UPDATE SET status = $4, end_time = CURRENT_TIMESTAMP, scraped_at = CURRENT_TIMESTAMP
                             """,
                             execution_id, query_key, filters_json, final_status
                         )
@@ -831,14 +832,15 @@ class OrchestratorAgent:
                     se.execution_id, 
                     se.timestamp, 
                     se.end_time,
+                    se.scraped_at,
                     se.search_term, 
                     se.filters, 
                     se.status,
                     COUNT(a.article_id) as total_articles 
                 FROM search_executions se 
                 LEFT JOIN articles a ON se.execution_id = a.execution_id 
-                GROUP BY se.execution_id, se.timestamp, se.end_time, se.search_term, se.filters, se.status 
-                ORDER BY se.timestamp DESC
+                GROUP BY se.execution_id, se.timestamp, se.end_time, se.scraped_at, se.search_term, se.filters, se.status 
+                ORDER BY COALESCE(se.scraped_at, se.timestamp) DESC
             """)
             return [dict(r) for r in records]
 

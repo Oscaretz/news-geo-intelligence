@@ -8,7 +8,13 @@ function formatTemporal(isoString) {
     const diffMs = Math.max(0, now - date);
     const diffHrs = diffMs / (1000 * 60 * 60);
 
-    const fullLocal = date.toLocaleString();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    const fullLocal = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
     let displayStr = '';
     
     if (diffHrs < 24) {
@@ -1256,13 +1262,13 @@ function renderHistoryTable() {
     
     // Sort descending by Phase 1 timestamp (Scraped On)
     filtered.sort((a, b) => {
-        const timeA = new Date(a.timestamp || 0).getTime();
-        const timeB = new Date(b.timestamp || 0).getTime();
+        const timeA = new Date(a.scraped_at || a.timestamp || 0).getTime();
+        const timeB = new Date(b.scraped_at || b.timestamp || 0).getTime();
         return timeB - timeA;
     });
     
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">No history records found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No history records found</td></tr>';
         return;
     }
     
@@ -1279,6 +1285,7 @@ function renderHistoryTable() {
         } catch(e) {}
         
         const dateHtml = formatTemporal(run.timestamp);
+        const scrapedOnHtml = formatTemporal(run.scraped_at || run.timestamp);
         
         let statusBadge = '';
         if (run.status === 'COMPLETED') {
@@ -1293,6 +1300,7 @@ function renderHistoryTable() {
             <td class="py-2 px-3 align-middle">${dateHtml}</td>
             <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
+            <td class="py-2 px-3 align-middle">${scrapedOnHtml}</td>
             <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
             <td class="py-2 px-3 align-middle text-right">
                 <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View">
