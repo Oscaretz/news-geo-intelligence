@@ -1,4 +1,4 @@
-from job_progress_store import update_progress
+from static.py.job_progress_store import update_progress
 import os
 import re
 import json
@@ -502,7 +502,7 @@ class OrchestratorAgent:
                 
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
-                        article_id TEXT PRIMARY KEY,
+                        article_id TEXT,
                         execution_id TEXT,
                         title TEXT,
                         url TEXT,
@@ -510,6 +510,7 @@ class OrchestratorAgent:
                         source TEXT,
                         geodata JSONB,
                         image_url TEXT,
+                        PRIMARY KEY (article_id, execution_id),
                         FOREIGN KEY(execution_id) REFERENCES search_executions(execution_id)
                     )
                 """)
@@ -703,7 +704,7 @@ class OrchestratorAgent:
                                 """
                                 INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url) 
                                 VALUES ($1, $2, $3, $4, $5, $6, NULL, $7) 
-                                ON CONFLICT (article_id) DO UPDATE SET image_url = EXCLUDED.image_url
+                                ON CONFLICT (article_id, execution_id) DO UPDATE SET image_url = EXCLUDED.image_url
                                 """,
                                 article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), raw_img
                             )

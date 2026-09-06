@@ -28,9 +28,9 @@ from flask import Flask, render_template, request, Response, jsonify
 from agents import OrchestratorAgent
 from dagster import DagsterInstance, reconstructable
 import dagster_pipeline
-from job_progress_store import get_progress
+from static.py.job_progress_store import get_progress
 
-from phase2_queue import queue_manager
+from static.py.phase2_queue import queue_manager
 
 import logging
 class NoJobsFilter(logging.Filter):
