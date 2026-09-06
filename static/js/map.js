@@ -229,6 +229,16 @@ function renderChoropleth() {
     setTimeout(() => { if (map) map.invalidateSize(); }, 150);
 }
 
+window.invalidateMapSize = function() {
+    if (map) {
+        map.invalidateSize();
+        if (currentCountryConfig && currentCountryConfig.center) {
+            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 4);
+        }
+    }
+};
+
+
 // Alias for backwards compatibility
 function renderHeatMap() {
     renderChoropleth();

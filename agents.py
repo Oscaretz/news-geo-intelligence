@@ -1,3 +1,4 @@
+from job_progress_store import update_progress
 import os
 import re
 import json
@@ -176,49 +177,51 @@ class GoogleSearchAgent:
         # Construir la URL del RSS de manera totalmente agnóstica
         url = f"https://news.google.com/rss/search?q={encoded_query}&hl={hl}&gl={gl}&ceid={ceid}"
         
-        try:
-            response = await session.get(url, timeout=15)
-            if response.status_code != 200: return []
-                
-            root = ElementTree.fromstring(response.text)
-            articles = []
-            seen_titles = set()
-            
-            for item in root.findall('.//item')[:buffer_limit]:
-                title = item.findtext('title', '')
-                if not title or title in seen_titles: 
-                    continue
-                seen_titles.add(title)
-                
-                raw_desc = item.findtext('description', '')
-                clean_desc = BeautifulSoup(raw_desc, 'html.parser').get_text(separator=' ', strip=True)
-                
-                source_tag = item.find('source')
-                source_name = source_tag.text if source_tag is not None else item.findtext('source', 'Desconocido')
-                
-                try:
-                    dt_obj = email.utils.parsedate_to_datetime(item.findtext('pubDate'))
-                    iso_date = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-                except Exception:
-                    iso_date = item.findtext('pubDate')
-
-                desc_soup = BeautifulSoup(raw_desc, 'html.parser')
-                img_tag = desc_soup.find('img')
-                rss_image_url = img_tag.get('src') if img_tag else None
-
-                articles.append({
-                    "guid": item.findtext('guid'),
-                    "title": title,
-                    "url": item.findtext('link'),
-                    "date": iso_date,
-                    "source": source_name,
-                    "summary": clean_desc,
-                    "_temp_image_url": rss_image_url
-                })
-            return articles
-        except Exception as e:
-            logger.error(f"❌ [GoogleSearch] Error: {e}")
+        response = await session.get(url, timeout=15)
+        logger.info(f"RSS Status: {response.status_code}, URL: {url}")
+        if response.status_code == 429:
+            raise Exception("GOOGLE_429")
+        if response.status_code != 200: 
+            logger.error(f"Failed RSS fetch: {response.text[:200]}")
             return []
+            
+        root = ElementTree.fromstring(response.text)
+        articles = []
+        seen_titles = set()
+        
+        for item in root.findall('.//item')[:buffer_limit]:
+            title = item.findtext('title', '')
+            if not title or title in seen_titles: 
+                continue
+            seen_titles.add(title)
+            
+            raw_desc = item.findtext('description', '')
+            clean_desc = BeautifulSoup(raw_desc, 'html.parser').get_text(separator=' ', strip=True)
+            
+            source_tag = item.find('source')
+            source_name = source_tag.text if source_tag is not None else item.findtext('source', 'Desconocido')
+            
+            try:
+                dt_obj = email.utils.parsedate_to_datetime(item.findtext('pubDate'))
+                iso_date = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                iso_date = item.findtext('pubDate')
+
+            desc_soup = BeautifulSoup(raw_desc, 'html.parser')
+            img_tag = desc_soup.find('img')
+            rss_image_url = img_tag.get('src') if img_tag else None
+
+            articles.append({
+                "guid": item.findtext('guid'),
+                "title": title,
+                "url": item.findtext('link'),
+                "date": iso_date,
+                "source": source_name,
+                "summary": clean_desc,
+                "_temp_image_url": rss_image_url
+            })
+        return articles
+
 
 class UrlResolverAgent:
     @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
@@ -361,8 +364,11 @@ async def resolve_url_combined(resolver_agent: UrlResolverAgent, session: AsyncS
     resolved = url
     try:
         resp = await session.get(url, allow_redirects=True, timeout=10)
+        if resp.status_code == 429:
+            raise Exception("GOOGLE_429")
         resolved = resp.url
     except Exception as e:
+        if str(e) == "GOOGLE_429": raise e
         logger.error(f"⚠️ [resolve_url_curl Error] {url}: {e}")
         
     if "news.google.com" in resolved or "google.com/url" in resolved:
@@ -416,15 +422,22 @@ class OrchestratorAgent:
         self.search_agent = GoogleSearchAgent()
         self.resolver = UrlResolverAgent()
         self.scraper = SiteScraperAgent(max_workers=5)
-        self.nlp = NLPAgent()
+        self._nlp = None
         self.db = None
         self.db_lock = asyncio.Lock()
         self.history_db = None
         self.history_lock = asyncio.Lock()
+        self.blocked_by_google = False
         
         self.playwright_semaphore = asyncio.Semaphore(1)
         self.scraper_semaphore = asyncio.Semaphore(10)
         self.nlp_semaphore = asyncio.Semaphore(1)
+
+    @property
+    def nlp(self):
+        if self._nlp is None:
+            self._nlp = NLPAgent()
+        return self._nlp
 
     async def init_cache(self):
         db_path = os.path.join(BASE_DIR, "cache.db")
@@ -512,13 +525,38 @@ class OrchestratorAgent:
         if not self.db:
             await self.init_cache()
             
+        existing_titles = set()
+        if execution_id:
+            update_progress(execution_id, 10, "Buscando artículos...")
+            if not self.history_db: await self.init_history_db()
+            async with self.history_db.acquire() as conn:
+                rows = await conn.fetch("SELECT title FROM articles WHERE execution_id = $1", execution_id)
+                existing_titles = {r['title'] for r in rows}
+            
         query_key = search_params.get("query", "")
+        self.blocked_by_google = False
+        
         async with AsyncSession(impersonate="chrome120") as session:
             # Stage 1: Discovery via search RSS
-            articles = await self.search_agent.search(session, search_params)
+            try:
+                articles = await self.search_agent.search(session, search_params)
+            except Exception as e:
+                if "GOOGLE_429" in str(e):
+                    self.blocked_by_google = True
+                    articles = []
+                else:
+                    raise e
+                    
+            # Skip articles already scraped (Resuming Phase 1)
+            articles = [a for a in articles if a['title'] not in existing_titles]
+            
+            if execution_id:
+                update_progress(execution_id, 40, f"Extrayendo texto de {len(articles)} artículos...")
             
             # Concurrently resolve target HTML, download/optimize images, extract text and cache
             async def process_article(a):
+                if getattr(self, 'blocked_by_google', False):
+                    return
                 title = a.get('title', 'Desconocido')
                 try:
                     # Randomized jitter to prevent anti-bot WAF flagging
@@ -536,6 +574,8 @@ class OrchestratorAgent:
                     for attempt in range(1, 4):
                         try:
                             response = await session.get(real_url, timeout=15)
+                            if response.status_code == 429:
+                                raise Exception("GOOGLE_429")
                             if response.status_code == 200:
                                 html = response.text
                                 break
@@ -628,6 +668,9 @@ class OrchestratorAgent:
             # Clean internal scraped_text from ALL processed articles (prevent memory/payload leak)
             for a in articles:
                 a.pop('scraped_text', None)
+            
+            if execution_id:
+                update_progress(execution_id, 100, "Extracción finalizada.")
                 
             # History Persistence (Phase 1)
             if not execution_id:
@@ -641,13 +684,14 @@ class OrchestratorAgent:
                 async with self.history_db.acquire() as conn:
                     async with conn.transaction():
                         # Update status and end_time if already exists, else insert
+                        final_status = 'PAUSED_BLOCKED' if self.blocked_by_google else 'SCRAPED'
                         await conn.execute(
                             """
                             INSERT INTO search_executions (execution_id, search_term, filters, status, end_time) 
-                            VALUES ($1, $2, $3::jsonb, 'SCRAPED', CURRENT_TIMESTAMP)
-                            ON CONFLICT (execution_id) DO UPDATE SET status = 'SCRAPED', end_time = CURRENT_TIMESTAMP
+                            VALUES ($1, $2, $3::jsonb, $4, CURRENT_TIMESTAMP)
+                            ON CONFLICT (execution_id) DO UPDATE SET status = $4, end_time = CURRENT_TIMESTAMP
                             """,
-                            execution_id, query_key, filters_json
+                            execution_id, query_key, filters_json, final_status
                         )
                         
                         for a in final_articles:
@@ -786,13 +830,14 @@ class OrchestratorAgent:
                 SELECT 
                     se.execution_id, 
                     se.timestamp, 
+                    se.end_time,
                     se.search_term, 
                     se.filters, 
                     se.status,
                     COUNT(a.article_id) as total_articles 
                 FROM search_executions se 
                 LEFT JOIN articles a ON se.execution_id = a.execution_id 
-                GROUP BY se.execution_id, se.timestamp, se.search_term, se.filters, se.status 
+                GROUP BY se.execution_id, se.timestamp, se.end_time, se.search_term, se.filters, se.status 
                 ORDER BY se.timestamp DESC
             """)
             return [dict(r) for r in records]

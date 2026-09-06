@@ -1,3 +1,34 @@
+
+function formatTemporal(isoString) {
+    if (!isoString) return '<span class="text-on-surface-variant text-sm">-</span>';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '<span class="text-on-surface-variant text-sm">-</span>';
+
+    const now = new Date();
+    const diffMs = Math.max(0, now - date);
+    const diffHrs = diffMs / (1000 * 60 * 60);
+
+    const fullLocal = date.toLocaleString();
+    let displayStr = '';
+    
+    if (diffHrs < 24) {
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        if (diffMins < 1) displayStr = "Just now";
+        else if (diffMins < 60) displayStr = `${diffMins} mins ago`;
+        else {
+            const hrs = Math.floor(diffHrs);
+            displayStr = `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+        }
+    } else {
+        const options = { day: '2-digit', month: 'short' };
+        displayStr = date.toLocaleDateString(undefined, options);
+        if (date.getFullYear() !== now.getFullYear()) {
+            displayStr += ` ${date.getFullYear()}`;
+        }
+    }
+    return `<span title="${fullLocal}" class="cursor-help text-sm font-medium text-on-surface">${displayStr}</span>`;
+}
+
 // static/js/ui.js — DOM manipulation, KPI computation, article rendering
 
 // ============================================
@@ -1223,6 +1254,13 @@ function renderHistoryTable() {
         JSON.stringify(h.filters || {}).toLowerCase().includes(filterText)
     );
     
+    // Sort descending by Phase 1 timestamp (Scraped On)
+    filtered.sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+    });
+    
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">No history records found</td></tr>';
         return;
@@ -1240,7 +1278,7 @@ function renderHistoryTable() {
             }
         } catch(e) {}
         
-        const dateStr = run.timestamp ? new Date(run.timestamp).toLocaleString() : 'N/A';
+        const dateHtml = formatTemporal(run.timestamp);
         
         let statusBadge = '';
         if (run.status === 'COMPLETED') {
@@ -1252,7 +1290,7 @@ function renderHistoryTable() {
         }
         
         tr.innerHTML = `
-            <td class="py-2 px-3 align-middle">${dateStr}</td>
+            <td class="py-2 px-3 align-middle">${dateHtml}</td>
             <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
             <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
@@ -1373,11 +1411,18 @@ window.viewExecution = async function(execution_id) {
         const mapearBtn = document.getElementById('mapearBtn');
         if (mapearBtn) mapearBtn.classList.remove('hidden');
 
-        switchTab('main');
         renderTopStories();
         renderFullFeed();
 
         if (typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
+        
+        // Auto-switch to analytics tab if we have geodata, otherwise main
+        const hasGeodata = collectedArticles.some(a => a.states && a.states.length > 0);
+        if (hasGeodata) {
+            switchTab('analytics');
+        } else {
+            switchTab('main');
+        }
         
         updateStatus('Loaded ' + collectedArticles.length + ' articles from history (complete).');
     } catch (e) {
@@ -1444,10 +1489,17 @@ function renderJobsQueue(jobs) {
     const tbody = document.getElementById('jobsTableBody');
     if (!tbody) return;
     
+    // Sort descending by end_time (Last Updated) or start_time
+    jobs.sort((a, b) => {
+        const timeA = new Date(a.end_time || a.start_time || 0).getTime();
+        const timeB = new Date(b.end_time || b.start_time || 0).getTime();
+        return timeB - timeA;
+    });
+    
     currentJobsData = jobs;
     
     if (!jobs || jobs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-on-surface-variant">No recent jobs found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-on-surface-variant">No recent jobs found.</td></tr>';
         stopLiveJobsTimer();
         return;
     }
@@ -1462,7 +1514,7 @@ function renderJobsQueue(jobs) {
         }
     });
 
-    if (tbody.querySelector('td[colspan="5"]')) {
+    if (tbody.querySelector('td[colspan="5"]') || tbody.querySelector('td[colspan="6"]')) {
         tbody.innerHTML = '';
     }
 
@@ -1472,21 +1524,21 @@ function renderJobsQueue(jobs) {
         
         let elapsedStr = "-";
         if (job.start_time) {
-            // If job has an end_time, freeze it there.
-            // If job doesn't have an end_time but is in a terminal state, freeze it at now (shouldn't happen with DB update, but fallback)
             let end = Date.now();
+            const startDate = new Date(job.start_time).getTime();
             if (job.end_time) {
-                end = job.end_time * 1000;
+                end = new Date(job.end_time).getTime();
             } else if (!['STARTED', 'STARTING', 'SCRAPING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING'].includes(job.status)) {
-                // If it's a legacy terminal state without end_time, just don't keep incrementing it visually if we can't help it.
-                // Actually if there's no end_time, it will keep ticking. We rely on the backend providing end_time.
+                end = startDate;
             }
-            const start = job.start_time * 1000;
+            const start = startDate;
             const diffSec = Math.max(0, Math.floor((end - start) / 1000));
             const m = Math.floor(diffSec / 60).toString().padStart(2, '0');
             const s = (diffSec % 60).toString().padStart(2, '0');
             elapsedStr = `${m}:${s}`;
         }
+        
+        const lastUpdatedHtml = formatTemporal(job.end_time || job.start_time);
         
         let statusHtml = '';
         if (isRunning) {
@@ -1511,6 +1563,7 @@ function renderJobsQueue(jobs) {
                 displayStatus = `QUEUED (Pos: ${qPos})`;
             }
             else if (job.status === 'PARTIALLY_ANALYZED') badgeClass = "bg-orange-100 text-orange-800";
+            else if (job.status === 'PAUSED_BLOCKED') badgeClass = "bg-yellow-100 text-yellow-800";
             else if (job.status === 'FAILURE') badgeClass = "bg-red-100 text-red-800";
             
             statusHtml = `<span class="px-2 py-1 rounded-full text-[12px] font-medium ${badgeClass}">${displayStatus}</span>`;
@@ -1520,6 +1573,8 @@ function renderJobsQueue(jobs) {
         if (job.status === 'SCRAPED' || job.status === 'PARTIALLY_ANALYZED') {
             const btnText = job.status === 'PARTIALLY_ANALYZED' ? 'Retry LLM Analysis' : 'Analyze with LLM';
             actionsHtml = `<button onclick="analyzeJob('${job.run_id}')" class="px-3 py-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
+        } else if (job.status === 'PAUSED_BLOCKED') {
+            actionsHtml = `<button onclick="resumeScrapingJob('${job.run_id}')" class="px-3 py-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-md text-label-sm font-medium transition-colors">Resume Scraping</button>`;
         } else if (isQueued) {
             actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-label-sm font-medium transition-colors">Cancel Queue</button>`;
         }
@@ -1537,12 +1592,13 @@ function renderJobsQueue(jobs) {
             <td class="py-3 px-4 font-mono text-sm">${job.run_id.substring(0,8)}...</td>
             <td class="py-3 px-4 max-w-[200px] truncate" title="${job.query}">${job.query || '(No query)'}</td>
             <td class="py-3 px-4">${statusHtml}</td>
+            <td class="py-3 px-4 font-mono text-sm text-on-surface-variant">${lastUpdatedHtml}</td>
             <td class="py-3 px-4 font-mono text-sm text-on-surface-variant" id="elapsed-${job.run_id}">${elapsedStr}</td>
             <td class="py-3 px-4">${actionsHtml}</td>
         `;
     });
 
-    const hasActiveJobs = jobs.some(j => ['STARTED', 'STARTING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPED'].includes(j.status));
+    const hasActiveJobs = jobs.some(j => ['STARTED', 'STARTING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPED', 'PAUSED_BLOCKED'].includes(j.status));
     const jobsTabActive = !document.getElementById('view-jobs').classList.contains('hidden');
     
     if (hasActiveJobs) {
@@ -1563,6 +1619,20 @@ function renderJobsQueue(jobs) {
             clearInterval(jobsPollInterval);
             jobsPollInterval = null;
         }
+    }
+}
+
+async function resumeScrapingJob(runId) {
+    try {
+        const response = await fetch(`/api/jobs/${runId}/resume_scraping`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            fetchJobs();
+        } else {
+            alert(`Error resuming job: ${data.error}`);
+        }
+    } catch (err) {
+        console.error("Error resuming scraping job:", err);
     }
 }
 

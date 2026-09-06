@@ -1,3 +1,5 @@
+import logging
+logging.getLogger('httpx').setLevel(logging.WARNING)
 import os
 import platform
 
@@ -29,6 +31,13 @@ import dagster_pipeline
 from job_progress_store import get_progress
 
 from phase2_queue import queue_manager
+
+import logging
+class NoJobsFilter(logging.Filter):
+    def filter(self, record):
+        return '/api/jobs HTTP' not in record.getMessage()
+
+logging.getLogger('werkzeug').addFilter(NoJobsFilter())
 
 app = Flask(__name__)
 queue_manager.start()
@@ -78,10 +87,28 @@ def api_discovery():
         'qsite': request.args.get('qsite', '')
     }
     
+    import uuid
+    import json
+    execution_id = str(uuid.uuid4())
+    search_term = search_params.get('query', '')
+    filters_json = json.dumps(search_params)
+    
     async def _fetch():
         orchestrator = OrchestratorAgent()
         try:
-            return await orchestrator.fetch_discovery(search_params)
+            # Insert SCRAPING state synchronously so UI picks it up immediately
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
+                await conn.execute(
+                    "INSERT INTO search_executions (execution_id, search_term, filters, status) VALUES ($1, $2, $3::jsonb, 'SCRAPING')",
+                    execution_id, search_term, filters_json
+                )
+            
+            result = await orchestrator.fetch_discovery(search_params, execution_id)
+            if isinstance(result, tuple) and len(result) == 2:
+                return result[1]
+            return result
         finally:
             await orchestrator.close()
             
@@ -150,26 +177,42 @@ def list_jobs():
         from agents import OrchestratorAgent
         
         async def fetch_jobs():
-            orchestrator = OrchestratorAgent()
-            await orchestrator.init_history_db()
-            async with orchestrator.history_db.acquire() as conn:
-                await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
-                rows = await conn.fetch("SELECT execution_id, search_term, status, timestamp, end_time FROM search_executions ORDER BY timestamp DESC LIMIT 20")
-                
-                jobs_data = []
-                for r in rows:
-                    prog = get_progress(r['execution_id'])
+            import os
+            db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@postgres:5432/history_db')
+            try:
+                pool = await asyncpg.create_pool(db_url)
+            except Exception:
+                if '@postgres:' in db_url:
+                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+                    pool = await asyncpg.create_pool(db_url)
+            try:
+                async with pool.acquire() as conn:
+                    await conn.execute("ALTER TABLE search_executions ADD COLUMN IF NOT EXISTS end_time TIMESTAMP;")
+                    rows = await conn.fetch("SELECT execution_id, search_term, status, timestamp, end_time FROM search_executions ORDER BY timestamp DESC LIMIT 20")
                     
-                    jobs_data.append({
-                        "run_id": r['execution_id'],
-                        "status": r['status'],
-                        "query": r['search_term'],
-                        "start_time": r['timestamp'].timestamp() if r['timestamp'] else None,
-                        "end_time": r['end_time'].timestamp() if r['end_time'] else None,
-                        "progress_pct": prog["progress_pct"],
-                        "current_step": prog["current_step"]
-                    })
-                return jobs_data
+                    import datetime
+                    def to_iso(dt):
+                        if not dt: return None
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=datetime.timezone.utc)
+                        return dt.isoformat()
+                    
+                    jobs_data = []
+                    for r in rows:
+                        prog = get_progress(r['execution_id'])
+                        
+                        jobs_data.append({
+                            "run_id": r['execution_id'],
+                            "status": r['status'],
+                            "query": r['search_term'],
+                            "start_time": to_iso(r['timestamp']),
+                            "end_time": to_iso(r['end_time']),
+                            "progress_pct": prog["progress_pct"],
+                            "current_step": prog["current_step"]
+                        })
+                    return jobs_data
+            finally:
+                await pool.close()
                 
         jobs_data = asyncio.run(fetch_jobs())
         return jsonify(jobs_data)
@@ -187,6 +230,40 @@ def analyze_job(execution_id):
             async with orchestrator.history_db.acquire() as conn:
                 await conn.execute("UPDATE search_executions SET status = 'QUEUED_FOR_ANALYSIS' WHERE execution_id = $1", execution_id)
         asyncio.run(update_status())
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/jobs/<execution_id>/resume_scraping', methods=['POST'])
+def resume_scraping(execution_id):
+    try:
+        import asyncio
+        import json
+        from agents import OrchestratorAgent
+        
+        async def _resume():
+            orchestrator = OrchestratorAgent()
+            await orchestrator.init_history_db()
+            async with orchestrator.history_db.acquire() as conn:
+                row = await conn.fetchrow("SELECT filters FROM search_executions WHERE execution_id = $1", execution_id)
+                if not row:
+                    return {"error": "Job not found"}
+                filters = json.loads(row['filters'])
+                await conn.execute("UPDATE search_executions SET status = 'SCRAPING' WHERE execution_id = $1", execution_id)
+            
+            try:
+                await orchestrator.fetch_discovery(filters, execution_id)
+            finally:
+                await orchestrator.close()
+            return {"success": True}
+            
+        # Corremos en background para no bloquear
+        import threading
+        def bg_run():
+            asyncio.run(_resume())
+            
+        t = threading.Thread(target=bg_run)
+        t.start()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -302,6 +379,8 @@ def get_history_list():
         for run in history:
             if 'timestamp' in run and run['timestamp']:
                 run['timestamp'] = run['timestamp'].isoformat()
+            if 'end_time' in run and run['end_time']:
+                run['end_time'] = run['end_time'].isoformat()
         return jsonify(history)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
