@@ -2,8 +2,9 @@ import sqlite3
 import os
 import platform
 
-dagster_home_dir = "/tmp/dagster_home" if platform.system() != 'Windows' else os.path.abspath(os.path.join(os.path.dirname(__file__), "dagster_home"))
-DB_PATH = os.path.join(dagster_home_dir, "static/py/job_progress.db")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+dagster_home_dir = os.path.join(BASE_DIR, "dagster_home")
+DB_PATH = os.path.join(dagster_home_dir, "job_progress.db")
 
 def _get_conn():
     os.makedirs(dagster_home_dir, exist_ok=True)
