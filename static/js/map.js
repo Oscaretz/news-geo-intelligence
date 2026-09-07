@@ -16,11 +16,11 @@ function initMap(force = false) {
     if (!force && mapContainer.offsetWidth === 0) return;
 
     if (!map) {
-        let center = [0, 0];
-        let zoom = 2;
+        let center = [23.6345, -102.5528];
+        let zoom = 5;
         if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
             center = currentCountryConfig.center;
-            zoom = currentCountryConfig.zoom || 2;
+            zoom = currentCountryConfig.zoom || 5;
         }
         map = L.map('map', { zoomControl: false }).setView(center, zoom);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -55,13 +55,7 @@ async function loadMapForCountry(countryKey) {
         currentCountryConfig = fullConfig[key] || fullConfig['mx'];
 
         if (map && currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
-            const size = map.getSize();
-            // If the map has no size yet, flyTo will crash with NaN. Fallback to setView.
-            if (size.x === 0 || size.y === 0) {
-                map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 4);
-            } else {
-                map.flyTo(currentCountryConfig.center, currentCountryConfig.zoom || 4, { animate: true, duration: 1 });
-            }
+            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
         }
 
         const geoRes = await fetch(`/static/maps/${key}_states.geojson`);
@@ -226,14 +220,16 @@ function updateMap(states) {
 function renderChoropleth() {
     if (!geojsonLayer) return;
     geojsonLayer.setStyle(styleFeature);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
 }
 
 window.invalidateMapSize = function() {
     if (map) {
         map.invalidateSize();
-        if (currentCountryConfig && currentCountryConfig.center) {
-            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 4);
+        if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
+        }
+        if (geojsonLayer) {
+            geojsonLayer.setStyle(styleFeature);
         }
     }
 };

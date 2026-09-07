@@ -1139,14 +1139,17 @@ function switchTab(tabId) {
         if (typeof loadMapForCountry === 'function' && typeof geoJsonData !== 'undefined' && !geoJsonData) {
             const country = document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx';
             loadMapForCountry(country);
-        } else if (typeof renderChoropleth === 'function') {
-            renderChoropleth();
         }
-        if (typeof map !== 'undefined' && map !== null) {
-            setTimeout(() => {
+        setTimeout(() => {
+            if (typeof window.invalidateMapSize === 'function') {
+                window.invalidateMapSize();
+            } else if (typeof map !== 'undefined' && map !== null) {
                 map.invalidateSize();
-            }, 100);
-        }
+            }
+            if (typeof renderChoropleth === 'function') {
+                renderChoropleth();
+            }
+        }, 120);
     }
 }
 
@@ -1399,6 +1402,20 @@ window.viewExecution = async function(execution_id) {
             const f = typeof data.execution?.filters === 'string' ? JSON.parse(data.execution.filters) : data.execution?.filters;
             if (f && f.country) country = f.country;
         } catch(e) {}
+
+        // Sync country toggle radio in UI
+        const countryRadio = document.querySelector(`input[name="countryToggle"][value="${country}"]`);
+        if (countryRadio) countryRadio.checked = true;
+
+        // Auto-switch to analytics tab FIRST if we have geodata, otherwise main.
+        // Switching tabs first ensures the container (#view-analytics) is visible
+        // with real dimensions when Leaflet initializes and constructs vector paths.
+        const hasGeodata = collectedArticles.some(a => a.states && a.states.length > 0);
+        if (hasGeodata) {
+            switchTab('analytics');
+        } else {
+            switchTab('main');
+        }
         
         if (typeof loadMapForCountry === 'function') {
             await loadMapForCountry(country);
@@ -1423,13 +1440,18 @@ window.viewExecution = async function(execution_id) {
         renderFullFeed();
 
         if (typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
-        
-        // Auto-switch to analytics tab if we have geodata, otherwise main
-        const hasGeodata = collectedArticles.some(a => a.states && a.states.length > 0);
+
         if (hasGeodata) {
-            switchTab('analytics');
-        } else {
-            switchTab('main');
+            setTimeout(() => {
+                if (typeof window.invalidateMapSize === 'function') {
+                    window.invalidateMapSize();
+                } else if (typeof map !== 'undefined' && map) {
+                    map.invalidateSize();
+                }
+                if (typeof renderChoropleth === 'function') {
+                    renderChoropleth();
+                }
+            }, 120);
         }
         
         updateStatus('Loaded ' + collectedArticles.length + ' articles from history (complete).');
