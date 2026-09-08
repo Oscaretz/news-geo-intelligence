@@ -1233,9 +1233,75 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initMap === 'function') initMap();
 });
 // ============================================
+// PAGINATION & SORTING HELPERS
+// ============================================
+function renderPaginationControls(buttonsContainerId, infoContainerId, totalItems, currentPage, pageSize, setPageFnName) {
+    const infoEl = document.getElementById(infoContainerId);
+    const buttonsEl = document.getElementById(buttonsContainerId);
+    if (!infoEl || !buttonsEl) return;
+    
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const endIndex = Math.min(currentPage * pageSize, totalItems);
+    
+    infoEl.textContent = `Showing ${startIndex}-${endIndex} of ${totalItems} entries`;
+    
+    let html = '';
+    
+    // Previous Button
+    if (currentPage <= 1) {
+        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium">Prev</button>`;
+    } else {
+        html += `<button onclick="${setPageFnName}(${currentPage - 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium">Prev</button>`;
+    }
+    
+    // Page Number Buttons
+    let pages = [];
+    if (totalPages <= 5) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (currentPage > 3) pages.push('...');
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        for (let i = start; i <= end; i++) {
+            if (!pages.includes(i)) pages.push(i);
+        }
+        if (currentPage < totalPages - 2) pages.push('...');
+        if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+    
+    pages.forEach(p => {
+        if (p === '...') {
+            html += `<span class="px-2 py-1 text-xs text-on-surface-variant opacity-60">...</span>`;
+        } else if (p === currentPage) {
+            html += `<button class="px-2.5 py-1 rounded bg-primary text-on-primary font-bold text-xs shadow-sm">${p}</button>`;
+        } else {
+            html += `<button onclick="${setPageFnName}(${p})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium">${p}</button>`;
+        }
+    });
+    
+    // Next Button
+    if (currentPage >= totalPages) {
+        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium">Next</button>`;
+    } else {
+        html += `<button onclick="${setPageFnName}(${currentPage + 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium">Next</button>`;
+    }
+    
+    buttonsEl.innerHTML = html;
+}
+
+// ============================================
 // HISTORY VIEWER
 // ============================================
 let historyData = [];
+let historySearchQuery = '';
+let historyStatusFilter = 'ALL';
+let historyHideZero = false;
+let historySortColumn = 'scraped_at';
+let historySortDir = 'desc';
+let historyPage = 1;
+let historyPageSize = 10;
 
 async function loadHistory() {
     try {
@@ -1246,8 +1312,66 @@ async function loadHistory() {
     } catch (e) {
         console.error(e);
         const tbody = document.getElementById('historyTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-error">Failed to load history</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-error">Failed to load history</td></tr>';
     }
+}
+
+function onHistoryFilterChange() {
+    const searchInput = document.getElementById('historySearchInput');
+    historySearchQuery = (searchInput ? searchInput.value : '').trim().toLowerCase();
+    
+    const statusSelect = document.getElementById('historyStatusFilter');
+    historyStatusFilter = statusSelect ? statusSelect.value : 'ALL';
+    
+    const hideZeroCheck = document.getElementById('historyHideZeroCheck');
+    historyHideZero = hideZeroCheck ? hideZeroCheck.checked : false;
+    
+    historyPage = 1;
+    renderHistoryTable();
+}
+
+function onHistoryPageSizeChange(newSize) {
+    historyPageSize = parseInt(newSize, 10) || 10;
+    historyPage = 1;
+    renderHistoryTable();
+}
+
+function toggleHistorySort(column) {
+    if (historySortColumn !== column) {
+        historySortColumn = column;
+        historySortDir = 'desc';
+    } else {
+        if (historySortDir === 'desc') {
+            historySortDir = 'asc';
+        } else if (historySortDir === 'asc') {
+            historySortColumn = 'scraped_at';
+            historySortDir = 'desc';
+        } else {
+            historySortDir = 'desc';
+        }
+    }
+    historyPage = 1;
+    renderHistoryTable();
+}
+
+function setHistoryPage(page) {
+    historyPage = page;
+    renderHistoryTable();
+}
+
+function updateHistorySortIcons() {
+    const cols = ['search_term', 'scraped_at', 'total_articles'];
+    cols.forEach(col => {
+        const iconEl = document.getElementById(`sort-icon-history-${col}`);
+        if (!iconEl) return;
+        if (historySortColumn === col) {
+            iconEl.className = 'material-symbols-outlined text-[16px] text-primary';
+            iconEl.textContent = historySortDir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+        } else {
+            iconEl.className = 'material-symbols-outlined text-[16px] opacity-40';
+            iconEl.textContent = 'unfold_more';
+        }
+    });
 }
 
 function renderHistoryTable() {
@@ -1255,27 +1379,56 @@ function renderHistoryTable() {
     if (!tbody) return;
     
     tbody.innerHTML = '';
-    const searchInput = document.getElementById('historySearchInput');
-    const filterText = (searchInput ? searchInput.value : '').toLowerCase();
+    updateHistorySortIcons();
     
-    const filtered = historyData.filter(h => 
-        (h.search_term || '').toLowerCase().includes(filterText) ||
-        JSON.stringify(h.filters || {}).toLowerCase().includes(filterText)
-    );
-    
-    // Sort descending by Phase 1 timestamp (Scraped On)
-    filtered.sort((a, b) => {
-        const timeA = new Date(a.scraped_at || a.timestamp || 0).getTime();
-        const timeB = new Date(b.scraped_at || b.timestamp || 0).getTime();
-        return timeB - timeA;
+    let filtered = historyData.filter(h => {
+        if (historySearchQuery) {
+            const matchesSearch = (h.search_term || '').toLowerCase().includes(historySearchQuery) ||
+                JSON.stringify(h.filters || {}).toLowerCase().includes(historySearchQuery);
+            if (!matchesSearch) return false;
+        }
+        if (historyStatusFilter === 'ANALYZED' && h.status !== 'COMPLETED') return false;
+        if (historyStatusFilter === 'RAW' && h.status === 'COMPLETED') return false;
+        if (historyHideZero && (parseInt(h.total_articles, 10) || 0) <= 0) return false;
+        
+        return true;
     });
     
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No history records found</td></tr>';
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (historySortColumn === 'search_term') {
+            valA = (a.search_term || '').toLowerCase();
+            valB = (b.search_term || '').toLowerCase();
+            if (valA < valB) return historySortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return historySortDir === 'asc' ? 1 : -1;
+            return 0;
+        } else if (historySortColumn === 'total_articles') {
+            valA = parseInt(a.total_articles, 10) || 0;
+            valB = parseInt(b.total_articles, 10) || 0;
+            return historySortDir === 'asc' ? valA - valB : valB - valA;
+        } else {
+            valA = new Date(a.scraped_at || a.timestamp || 0).getTime();
+            valB = new Date(b.scraped_at || b.timestamp || 0).getTime();
+            return historySortDir === 'asc' ? valA - valB : valB - valA;
+        }
+    });
+    
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / historyPageSize) || 1;
+    if (historyPage > totalPages) historyPage = totalPages;
+    if (historyPage < 1) historyPage = 1;
+    
+    const startIndex = (historyPage - 1) * historyPageSize;
+    const endIndex = Math.min(startIndex + historyPageSize, totalItems);
+    const paginated = filtered.slice(startIndex, endIndex);
+    
+    if (totalItems === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-on-surface-variant">No history records found</td></tr>';
+        renderPaginationControls('historyPaginationButtons', 'historyPageInfo', 0, 1, historyPageSize, 'setHistoryPage');
         return;
     }
     
-    filtered.forEach(run => {
+    paginated.forEach(run => {
         const tr = document.createElement('tr');
         tr.className = "border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors";
         
@@ -1287,7 +1440,6 @@ function renderHistoryTable() {
             }
         } catch(e) {}
         
-        const dateHtml = formatTemporal(run.timestamp);
         const scrapedOnHtml = formatTemporal(run.scraped_at || run.timestamp);
         
         let statusBadge = '';
@@ -1300,7 +1452,6 @@ function renderHistoryTable() {
         }
         
         tr.innerHTML = `
-            <td class="py-2 px-3 align-middle">${dateHtml}</td>
             <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
             <td class="py-2 px-3 align-middle">${scrapedOnHtml}</td>
@@ -1317,6 +1468,8 @@ function renderHistoryTable() {
         tbody.appendChild(tr);
     });
     
+    renderPaginationControls('historyPaginationButtons', 'historyPageInfo', totalItems, historyPage, historyPageSize, 'setHistoryPage');
+    
     // Apply local storage column visibility
     const stored = localStorage.getItem('historyCols');
     if (stored) {
@@ -1329,7 +1482,11 @@ function renderHistoryTable() {
     }
 }
 
-window.filterHistoryTable = renderHistoryTable;
+window.onHistoryFilterChange = onHistoryFilterChange;
+window.onHistoryPageSizeChange = onHistoryPageSizeChange;
+window.toggleHistorySort = toggleHistorySort;
+window.setHistoryPage = setHistoryPage;
+window.filterHistoryTable = onHistoryFilterChange;
 
 window.toggleHistoryColumns = function() {
     const div = document.getElementById('historyColumnToggle');
@@ -1488,15 +1645,75 @@ window.exportHistory = async function(execution_id) {
 let jobsPollInterval = null;
 let liveJobsTimer = null;
 let currentJobsData = [];
+let jobsStatusFilter = 'ALL';
+let jobsSearchQuery = '';
+let jobsSortColumn = 'end_time';
+let jobsSortDir = 'desc';
+let jobsPage = 1;
+let jobsPageSize = 10;
+
+function onJobsFilterChange() {
+    const searchInput = document.getElementById('jobsSearchInput');
+    jobsSearchQuery = (searchInput ? searchInput.value : '').trim().toLowerCase();
+    
+    const statusSelect = document.getElementById('jobsStatusFilter');
+    jobsStatusFilter = statusSelect ? statusSelect.value : 'ALL';
+    jobsPage = 1;
+    renderJobsQueue(currentJobsData);
+}
+
+function onJobsPageSizeChange(newSize) {
+    jobsPageSize = parseInt(newSize, 10) || 10;
+    jobsPage = 1;
+    renderJobsQueue(currentJobsData);
+}
+
+function toggleJobsSort(column) {
+    if (jobsSortColumn !== column) {
+        jobsSortColumn = column;
+        jobsSortDir = 'desc';
+    } else {
+        if (jobsSortDir === 'desc') {
+            jobsSortDir = 'asc';
+        } else if (jobsSortDir === 'asc') {
+            jobsSortColumn = 'end_time';
+            jobsSortDir = 'desc';
+        } else {
+            jobsSortDir = 'desc';
+        }
+    }
+    jobsPage = 1;
+    renderJobsQueue(currentJobsData);
+}
+
+function setJobsPage(page) {
+    jobsPage = page;
+    renderJobsQueue(currentJobsData);
+}
+
+function updateJobsSortIcons() {
+    const cols = ['query', 'status', 'end_time', 'elapsed'];
+    cols.forEach(col => {
+        const iconEl = document.getElementById(`sort-icon-jobs-${col}`);
+        if (!iconEl) return;
+        if (jobsSortColumn === col) {
+            iconEl.className = 'material-symbols-outlined text-[16px] text-primary';
+            iconEl.textContent = jobsSortDir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+        } else {
+            iconEl.className = 'material-symbols-outlined text-[16px] opacity-40';
+            iconEl.textContent = 'unfold_more';
+        }
+    });
+}
 
 function startLiveJobsTimer() {
     if (!liveJobsTimer) {
         liveJobsTimer = setInterval(() => {
             currentJobsData.forEach(job => {
-                if (job.status === 'STARTED' || job.status === 'STARTING' || job.status === 'QUEUED') {
+                if (['STARTED', 'STARTING', 'QUEUED', 'SCRAPING', 'ANALYZING', 'QUEUED_FOR_ANALYSIS'].includes(job.status)) {
                     const elapsedCell = document.getElementById(`elapsed-${job.run_id}`);
                     if (elapsedCell && job.start_time) {
-                        const start = job.start_time * 1000;
+                        const start = new Date(job.start_time).getTime();
                         const diffSec = Math.max(0, Math.floor((Date.now() - start) / 1000));
                         const m = Math.floor(diffSec / 60).toString().padStart(2, '0');
                         const s = (diffSec % 60).toString().padStart(2, '0');
@@ -1519,26 +1736,81 @@ function renderJobsQueue(jobs) {
     const tbody = document.getElementById('jobsTableBody');
     if (!tbody) return;
     
-    // Sort descending by end_time (Last Updated) or start_time
-    jobs.sort((a, b) => {
-        const timeA = new Date(a.end_time || a.start_time || 0).getTime();
-        const timeB = new Date(b.end_time || b.start_time || 0).getTime();
-        return timeB - timeA;
+    currentJobsData = jobs || [];
+    updateJobsSortIcons();
+    
+    // 1. Filter
+    let filtered = currentJobsData.filter(j => {
+        if (jobsSearchQuery) {
+            const queryMatch = (j.query || '').toLowerCase().includes(jobsSearchQuery);
+            const runIdMatch = (j.run_id || '').toLowerCase().includes(jobsSearchQuery);
+            if (!queryMatch && !runIdMatch) return false;
+        }
+        if (jobsStatusFilter === 'ACTIVE') {
+            return ['QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPING', 'STARTED', 'STARTING'].includes(j.status);
+        } else if (jobsStatusFilter === 'READY') {
+            return ['SCRAPED', 'PARTIALLY_ANALYZED'].includes(j.status);
+        } else if (jobsStatusFilter === 'COMPLETED') {
+            return ['COMPLETED', 'SUCCESS'].includes(j.status);
+        }
+        return true;
     });
     
-    currentJobsData = jobs;
+    // 2. Sort
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (jobsSortColumn === 'query') {
+            valA = (a.query || '').toLowerCase();
+            valB = (b.query || '').toLowerCase();
+            if (valA < valB) return jobsSortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return jobsSortDir === 'asc' ? 1 : -1;
+            return 0;
+        } else if (jobsSortColumn === 'status') {
+            valA = (a.status || '').toLowerCase();
+            valB = (b.status || '').toLowerCase();
+            if (valA < valB) return jobsSortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return jobsSortDir === 'asc' ? 1 : -1;
+            return 0;
+        } else if (jobsSortColumn === 'elapsed') {
+            const getDuration = (j) => {
+                if (!j.start_time) return 0;
+                let end = Date.now();
+                const startDate = new Date(j.start_time).getTime();
+                if (j.end_time) end = new Date(j.end_time).getTime();
+                else if (!['STARTED', 'STARTING', 'SCRAPING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING'].includes(j.status)) end = startDate;
+                return Math.max(0, Math.floor((end - startDate) / 1000));
+            };
+            valA = getDuration(a);
+            valB = getDuration(b);
+            return jobsSortDir === 'asc' ? valA - valB : valB - valA;
+        } else {
+            valA = new Date(a.end_time || a.start_time || 0).getTime();
+            valB = new Date(b.end_time || b.start_time || 0).getTime();
+            return jobsSortDir === 'asc' ? valA - valB : valB - valA;
+        }
+    });
     
-    if (!jobs || jobs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-on-surface-variant">No recent jobs found.</td></tr>';
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / jobsPageSize) || 1;
+    if (jobsPage > totalPages) jobsPage = totalPages;
+    if (jobsPage < 1) jobsPage = 1;
+    
+    const startIndex = (jobsPage - 1) * jobsPageSize;
+    const endIndex = Math.min(startIndex + jobsPageSize, totalItems);
+    const paginated = filtered.slice(startIndex, endIndex);
+
+    if (totalItems === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-on-surface-variant">No jobs found matching criteria.</td></tr>';
+        renderPaginationControls('jobsPaginationButtons', 'jobsPageInfo', 0, 1, jobsPageSize, 'setJobsPage');
         stopLiveJobsTimer();
         return;
     }
 
     const existingRows = Array.from(tbody.querySelectorAll('tr[data-run-id]')).map(tr => tr.getAttribute('data-run-id'));
-    const newRows = jobs.map(j => j.run_id);
+    const paginatedIds = paginated.map(j => j.run_id);
     
     existingRows.forEach(id => {
-        if (!newRows.includes(id)) {
+        if (!paginatedIds.includes(id)) {
             const tr = document.getElementById(`job-row-${id}`);
             if (tr) tr.remove();
         }
@@ -1548,7 +1820,7 @@ function renderJobsQueue(jobs) {
         tbody.innerHTML = '';
     }
 
-    jobs.forEach((job, index) => {
+    paginated.forEach((job, index) => {
         const isRunning = job.status === 'ANALYZING' || job.status === 'STARTED' || job.status === 'SCRAPING';
         const isQueued = job.status === 'QUEUED_FOR_ANALYSIS';
         
@@ -1589,7 +1861,7 @@ function renderJobsQueue(jobs) {
             else if (job.status === 'SCRAPED') badgeClass = "bg-blue-50 text-blue-800";
             else if (job.status === 'QUEUED_FOR_ANALYSIS') {
                 badgeClass = "bg-purple-100 text-purple-800";
-                const qPos = jobs.slice(0, index + 1).filter(j => j.status === 'QUEUED_FOR_ANALYSIS').length;
+                const qPos = filtered.slice(0, startIndex + index + 1).filter(j => j.status === 'QUEUED_FOR_ANALYSIS').length;
                 displayStatus = `QUEUED (Pos: ${qPos})`;
             }
             else if (job.status === 'PARTIALLY_ANALYZED') badgeClass = "bg-orange-100 text-orange-800";
@@ -1615,7 +1887,6 @@ function renderJobsQueue(jobs) {
             tr.id = `job-row-${job.run_id}`;
             tr.setAttribute('data-run-id', job.run_id);
             tr.className = "border-b border-outline-variant/30 hover:bg-surface-container-low transition-colors";
-            tbody.appendChild(tr);
         }
         
         tr.innerHTML = `
@@ -1623,12 +1894,17 @@ function renderJobsQueue(jobs) {
             <td class="py-3 px-4 max-w-[200px] truncate" title="${job.query}">${job.query || '(No query)'}</td>
             <td class="py-3 px-4">${statusHtml}</td>
             <td class="py-3 px-4 font-mono text-sm text-on-surface-variant">${lastUpdatedHtml}</td>
-            <td class="py-3 px-4 font-mono text-sm text-on-surface-variant" id="elapsed-${job.run_id}">${elapsedStr}</td>
+            <td class="py-3 px-4 text-on-surface-variant font-mono text-sm" id="elapsed-${job.run_id}">${elapsedStr}</td>
             <td class="py-3 px-4">${actionsHtml}</td>
         `;
+        
+        // Append to tbody in sorted order
+        tbody.appendChild(tr);
     });
 
-    const hasActiveJobs = jobs.some(j => ['STARTED', 'STARTING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPED', 'PAUSED_BLOCKED'].includes(j.status));
+    renderPaginationControls('jobsPaginationButtons', 'jobsPageInfo', totalItems, jobsPage, jobsPageSize, 'setJobsPage');
+
+    const hasActiveJobs = currentJobsData.some(j => ['STARTED', 'STARTING', 'QUEUED_FOR_ANALYSIS', 'ANALYZING', 'SCRAPED', 'PAUSED_BLOCKED'].includes(j.status));
     const jobsTabActive = !document.getElementById('view-jobs').classList.contains('hidden');
     
     if (hasActiveJobs) {
@@ -1651,6 +1927,11 @@ function renderJobsQueue(jobs) {
         }
     }
 }
+
+window.onJobsFilterChange = onJobsFilterChange;
+window.onJobsPageSizeChange = onJobsPageSizeChange;
+window.toggleJobsSort = toggleJobsSort;
+window.setJobsPage = setJobsPage;
 
 async function resumeScrapingJob(runId) {
     try {
