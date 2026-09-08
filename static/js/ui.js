@@ -242,6 +242,16 @@ function resetUI(mode) {
     feedSelectedStates = new Set();
     analyticsSelectedStates  = new Set();
     analyticsSelectedSources = new Set();
+    currentFilter = null;
+
+    const analyticsDate = document.getElementById('analyticsDateFilter');
+    if (analyticsDate) {
+        if (analyticsDate._flatpickr) analyticsDate._flatpickr.clear();
+        analyticsDate.value = '';
+    }
+    const resetBtn = document.getElementById('analyticsResetBtn');
+    if (resetBtn) resetBtn.classList.add('hidden');
+    ['State', 'Source'].forEach(type => updateAnalyticsTriggerLabel(type));
     
     renderSkeletons();
     const feedInfo = document.getElementById('feedPaginationInfo');
@@ -767,12 +777,16 @@ function populateAnalyticsFilters() {
 }
 
 function applyAnalyticsFilters() {
-    const dateInput = document.getElementById('analyticsDateFilter')?.value || '';
+    const dateInput = (document.getElementById('analyticsDateFilter')?.value || '').trim();
     let startD = null, endD = null;
     if (dateInput.includes(' to ')) {
         const parts = dateInput.split(' to ');
         startD = new Date(parts[0]);
         endD = new Date(parts[1]);
+        endD.setHours(23,59,59,999);
+    } else if (dateInput !== '') {
+        startD = new Date(dateInput);
+        endD = new Date(dateInput);
         endD.setHours(23,59,59,999);
     }
 
@@ -846,6 +860,12 @@ function applyAnalyticsFilters() {
     feedCurrentPage = 0;
     renderFullFeed();
 
+    const hasActiveFilter = analyticsSelectedStates.size > 0 || analyticsSelectedSources.size > 0 || dateInput !== '' || Boolean(currentFilter);
+    const resetBtn = document.getElementById('analyticsResetBtn');
+    if (resetBtn) {
+        resetBtn.classList.toggle('hidden', !hasActiveFilter);
+    }
+
     const filterBanner = document.getElementById('filterBanner');
     if (filterBanner) {
         if (analyticsSelectedStates.size > 0 || analyticsSelectedSources.size > 0) {
@@ -866,12 +886,36 @@ function resetAnalyticsFilters() {
     analyticsSelectedSources.clear();
     feedSelectedStates.clear();
     feedSelectedSources.clear();
+    currentFilter = null;
+
+    const analyticsDate = document.getElementById('analyticsDateFilter');
+    if (analyticsDate) {
+        if (analyticsDate._flatpickr) {
+            analyticsDate._flatpickr.clear();
+        }
+        analyticsDate.value = '';
+    }
+
+    const feedDate = document.getElementById('feedDateFilter');
+    if (feedDate) {
+        if (feedDate._flatpickr) {
+            feedDate._flatpickr.clear();
+        }
+        feedDate.value = '';
+    }
+
     ['State', 'Source'].forEach(type => {
         updateAnalyticsTriggerLabel(type);
         syncFeedSelectAll(type);
         const dd = document.getElementById(`analytics${type}Dropdown`);
         if (dd) dd.classList.add('hidden');
+        buildAnalyticsCheckboxes(type);
     });
+
+    if (typeof centerMap === 'function') {
+        centerMap();
+    }
+
     applyAnalyticsFilters();
 }
 
@@ -926,11 +970,13 @@ window.applyGlobalFilter = function(filterType, filterValue) {
         if (analyticsSelectedStates.has(filterValue) && analyticsSelectedStates.size === 1) {
             analyticsSelectedStates.clear();
             feedSelectedStates.clear();
+            currentFilter = null;
         } else {
             analyticsSelectedStates.clear();
             analyticsSelectedStates.add(filterValue);
             feedSelectedStates.clear();
             feedSelectedStates.add(filterValue);
+            currentFilter = { type: 'state', value: filterValue };
         }
         updateAnalyticsTriggerLabel('State');
         syncFeedSelectAll('State');
@@ -938,11 +984,13 @@ window.applyGlobalFilter = function(filterType, filterValue) {
         if (analyticsSelectedSources.has(filterValue) && analyticsSelectedSources.size === 1) {
             analyticsSelectedSources.clear();
             feedSelectedSources.clear();
+            currentFilter = null;
         } else {
             analyticsSelectedSources.clear();
             analyticsSelectedSources.add(filterValue);
             feedSelectedSources.clear();
             feedSelectedSources.add(filterValue);
+            currentFilter = { type: 'source', value: filterValue };
         }
         updateAnalyticsTriggerLabel('Source');
         syncFeedSelectAll('Source');
@@ -996,6 +1044,11 @@ function initDatePicker() {
             allowInput: false,
             onChange: function(selectedDates) {
                 if (selectedDates.length === 0 || selectedDates.length === 2) {
+                    applyAnalyticsFilters();
+                }
+            },
+            onClose: function(selectedDates) {
+                if (selectedDates.length === 1) {
                     applyAnalyticsFilters();
                 }
             }
@@ -1529,6 +1582,19 @@ window.viewExecution = async function(execution_id) {
         uniqueStates = new Set();
         stateFrequency = {};
         sourceFrequency = {};
+        analyticsSelectedStates.clear();
+        analyticsSelectedSources.clear();
+        feedSelectedStates.clear();
+        feedSelectedSources.clear();
+        currentFilter = null;
+        ['State', 'Source'].forEach(type => updateAnalyticsTriggerLabel(type));
+        const analyticsDate = document.getElementById('analyticsDateFilter');
+        if (analyticsDate) {
+            if (analyticsDate._flatpickr) analyticsDate._flatpickr.clear();
+            analyticsDate.value = '';
+        }
+        const resetBtn = document.getElementById('analyticsResetBtn');
+        if (resetBtn) resetBtn.classList.add('hidden');
         if (typeof resetAnalytics === 'function') resetAnalytics();
         if (typeof resetMapState === 'function') resetMapState();
 

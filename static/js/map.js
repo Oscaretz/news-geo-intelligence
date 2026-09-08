@@ -189,6 +189,9 @@ function onEachFeature(feature, layer) {
             if (map) {
                 map.fitBounds(e.target.getBounds(), { maxZoom: 7, animate: true });
             }
+            if (typeof window.applyGlobalFilter === 'function') {
+                window.applyGlobalFilter('state', stateName);
+            }
         }
     });
 }

@@ -357,7 +357,7 @@
             <div class="flex-1"></div>
 
             <!-- Reset Filters -->
-            <button onclick="resetAnalyticsFilters()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-on-surface-variant hover:text-primary border border-outline-variant/30 rounded-full hover:border-primary-container transition-colors">
+            <button id="analyticsResetBtn" onclick="resetAnalyticsFilters()" class="hidden flex items-center gap-1.5 px-3 py-1.5 text-sm text-on-surface-variant hover:text-primary border border-outline-variant/30 rounded-full hover:border-primary-container transition-colors">
                 <span class="material-symbols-outlined text-[16px]">filter_alt_off</span>
                 Reset Filters
             </button>
@@ -456,7 +456,7 @@
                 <h2 class="text-title-md font-title-md text-primary-container">Background Jobs Queue</h2>
                 <div class="flex items-center gap-2">
                     <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
-                    <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                    <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
                         <option value="ALL">All Jobs</option>
                         <option value="ACTIVE">Active (QUEUED / ANALYZING)</option>
                         <option value="READY">Ready for LLM (SCRAPED)</option>
@@ -496,7 +496,7 @@
             <div id="jobsPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
                 <div class="flex items-center gap-2">
                     <span>Show</span>
-                    <select id="jobsPageSizeSelect" onchange="onJobsPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded px-2 py-1 outline-none text-on-surface cursor-pointer">
+                    <select id="jobsPageSizeSelect" onchange="onJobsPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
                         <option value="10" selected>10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
@@ -529,7 +529,7 @@
                 <div class="flex items-center gap-2 flex-wrap">
                     <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     
-                    <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                    <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
                         <option value="ALL">All Statuses</option>
                         <option value="ANALYZED">Analyzed</option>
                         <option value="RAW">Raw Articles</option>
@@ -580,7 +580,7 @@
             <div id="historyPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
                 <div class="flex items-center gap-2">
                     <span>Show</span>
-                    <select id="historyPageSizeSelect" onchange="onHistoryPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded px-2 py-1 outline-none text-on-surface cursor-pointer">
+                    <select id="historyPageSizeSelect" onchange="onHistoryPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
                         <option value="10" selected>10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
