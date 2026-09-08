@@ -83,8 +83,23 @@ function matchGeoJsonState(stateName) {
     const sNorm = normalizeText(stateName);
 
     if (geoJsonData && geoJsonData.features) {
-        const found = geoJsonData.features.find(f => {
+        // Pass 1: Exact match
+        let found = geoJsonData.features.find(f => normalizeText(f.properties.state_name) === sNorm);
+        if (found) return found.properties.state_name;
+        
+        // Pass 2: Substring match (careful with false positives like Baja California Sur -> Baja California)
+        found = geoJsonData.features.find(f => {
             const fNorm = normalizeText(f.properties.state_name);
+            
+            if (sNorm.includes('baja california') && fNorm.includes('baja california')) {
+                const sHasSur = sNorm.includes('sur');
+                const fHasSur = fNorm.includes('sur');
+                if (sHasSur !== fHasSur) return false;
+            }
+            
+            // Prevent 'mexico' alone from matching 'ciudad de mexico' first (which comes earlier in GeoJSON)
+            if (sNorm === 'mexico' && fNorm === 'ciudad de mexico') return false;
+            
             return fNorm === sNorm || fNorm.includes(sNorm) || sNorm.includes(fNorm);
         });
         if (found) return found.properties.state_name;
