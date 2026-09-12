@@ -209,16 +209,22 @@ async function downloadExcel() {
     if (collectedArticles.length === 0) return alert("No hay artículos.");
 
     // Formatear la data (Headers en Español) justo en el momento de la descarga
-    const excelData = collectedArticles.map(article => ({
-        "Identificador Único": article.guid || '',
-        "Título": article.title || '',
-        "Fuente": article.source || '',
-        "URL de Google": article.url || '',
-        "URL Real": article.real_url || '',
-        "Fecha de Publicación": article.date || '',
-        "Estados Extraídos": article.states && article.states.length > 0 ? article.states.join(', ') : 'Sin localidad',
-        "URL de Imagen": article.image_url || article.image || ''
-    }));
+    const excelData = collectedArticles.map(article => {
+        const obj = {
+            "Identificador Único": article.guid || '',
+            "Título": article.title || '',
+            "Fuente": article.source || '',
+            "URL de Google": article.url || '',
+            "URL Real": article.real_url || '',
+            "Fecha de Publicación": article.date || '',
+            "Estados Extraídos": article.states && article.states.length > 0 ? article.states.join(', ') : 'Sin localidad',
+            "URL de Imagen": article.image_url || article.image || ''
+        };
+        if (article.origin_search_term) {
+            obj["Término de Búsqueda Origen"] = article.origin_search_term;
+        }
+        return obj;
+    });
 
     const payload = {
         articles: excelData,

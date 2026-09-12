@@ -354,6 +354,8 @@
                 </div>
             </div>
 
+            <div id="activeRunsContainer" class="flex flex-wrap items-center gap-2"></div>
+            
             <div class="flex-1"></div>
 
             <!-- Reset Filters -->
@@ -527,6 +529,9 @@
             <div class="flex justify-between items-center mb-md flex-wrap gap-3">
                 <h2 class="text-title-md font-title-md text-primary-container">Execution History</h2>
                 <div class="flex items-center gap-2 flex-wrap">
+                    <button id="mapSelectedBtn" onclick="mapSelectedHistory()" class="hidden px-3 py-1.5 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">map</span> <span id="mapSelectedCount">Map Selected (0)</span>
+                    </button>
                     <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     
                     <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
@@ -547,17 +552,20 @@
             </div>
             
             <div id="historyColumnToggle" class="hidden mb-4 p-3 bg-surface-container rounded-md flex flex-wrap gap-4 text-sm text-on-surface-variant">
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(0)" class="accent-primary"> Search Term</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> Filters</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> Scraped On</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> Articles</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> Actions</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> Search Term</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> Filters</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> Scraped On</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> Articles</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(5)" class="accent-primary"> Actions</label>
             </div>
 
             <div class="overflow-x-auto w-full">
                 <table class="w-full text-left border-collapse" id="historyTable">
                     <thead>
                         <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
+                            <th class="py-2 px-3 w-10 text-center">
+                                <input type="checkbox" id="historyMasterCheckbox" onchange="toggleAllHistorySelection()" class="accent-primary w-4 h-4 cursor-pointer">
+                            </th>
                             <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('search_term')">
                                 <div class="flex items-center gap-1">Search Term <span id="sort-icon-history-search_term" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>

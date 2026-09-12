@@ -1355,6 +1355,182 @@ let historySortColumn = 'scraped_at';
 let historySortDir = 'desc';
 let historyPage = 1;
 let historyPageSize = 10;
+let selectedHistoryRuns = new Set();
+let multiRunMode = false;
+
+window.toggleAllHistorySelection = function() {
+    const master = document.getElementById('historyMasterCheckbox');
+    const checked = master.checked;
+    const cbs = document.querySelectorAll('.history-row-checkbox:not(:disabled)');
+    cbs.forEach(cb => {
+        cb.checked = checked;
+        if(checked) selectedHistoryRuns.add(cb.value);
+        else selectedHistoryRuns.delete(cb.value);
+    });
+    updateHistorySelectionUI();
+};
+
+window.updateHistorySelection = function() {
+    const cbs = document.querySelectorAll('.history-row-checkbox');
+    let allChecked = true;
+    let anyValid = false;
+    cbs.forEach(cb => {
+        if(!cb.disabled) {
+            anyValid = true;
+            if(cb.checked) selectedHistoryRuns.add(cb.value);
+            else {
+                selectedHistoryRuns.delete(cb.value);
+                allChecked = false;
+            }
+        }
+    });
+    const master = document.getElementById('historyMasterCheckbox');
+    if(master) master.checked = anyValid && allChecked;
+    updateHistorySelectionUI();
+};
+
+function updateHistorySelectionUI() {
+    const btn = document.getElementById('mapSelectedBtn');
+    const countSpan = document.getElementById('mapSelectedCount');
+    if(!btn || !countSpan) return;
+    
+    // Ensure checkboxes reflect Set state (for pagination)
+    const cbs = document.querySelectorAll('.history-row-checkbox');
+    cbs.forEach(cb => {
+        if(selectedHistoryRuns.has(cb.value)) cb.checked = true;
+    });
+
+    if(selectedHistoryRuns.size >= 2) {
+        countSpan.textContent = `Map Selected (${selectedHistoryRuns.size}) \u2192`;
+        btn.classList.remove('hidden');
+    } else {
+        btn.classList.add('hidden');
+    }
+}
+
+window.mapSelectedHistory = async function() {
+    if(selectedHistoryRuns.size < 2) return;
+    const ids = Array.from(selectedHistoryRuns);
+    
+    updateStatus(`Aggregating ${ids.length} executions...`);
+    try {
+        const response = await fetch('/api/analytics/aggregate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ execution_ids: ids })
+        });
+        
+        if (!response.ok) throw new Error('Aggregate load failed');
+        const data = await response.json();
+        
+        multiRunMode = true;
+        resetAnalyticsFilters();
+        
+        // Setup Active Runs chips
+        const activeRunsContainer = document.getElementById('activeRunsContainer');
+        if(activeRunsContainer) {
+            activeRunsContainer.innerHTML = '';
+            
+            // Limit to 3 explicit chips + "and X more" if many
+            const limit = 3;
+            const shown = data.executions.slice(0, limit);
+            const extra = data.executions.length - limit;
+            
+            shown.forEach(exec => {
+                const term = exec.search_term || exec.execution_id.substring(0,8);
+                activeRunsContainer.innerHTML += `
+                    <div class="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium border border-primary/20">
+                        <span class="truncate max-w-[150px]" title="Query: ${exec.search_term}\nDate: ${formatTemporal(exec.scraped_at)}">${term}</span>
+                        <button onclick="removeAggregatedRun('${exec.execution_id}')" class="hover:bg-primary/20 rounded-full w-4 h-4 flex items-center justify-center transition-colors">
+                            <span class="material-symbols-outlined text-[12px]">close</span>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            if(extra > 0) {
+                activeRunsContainer.innerHTML += `
+                    <div class="text-xs text-on-surface-variant font-medium px-1">
+                        +${extra} more
+                    </div>
+                `;
+            }
+            
+            activeRunsContainer.innerHTML += `
+                <button onclick="clearAllAggregatedRuns()" class="text-xs text-on-surface-variant hover:text-red-500 underline decoration-dotted ml-1 transition-colors">
+                    Clear All
+                </button>
+            `;
+        }
+        
+        // Hide global search bar text since we are in multi-run
+        const mInput = document.getElementById('mainSearchInput');
+        if(mInput) mInput.value = '';
+        
+        // Parse articles
+        let parsed = data.articles.map(a => {
+            let gd = [];
+            if(typeof a.geodata === 'string') gd = JSON.parse(a.geodata);
+            else if(Array.isArray(a.geodata)) gd = a.geodata;
+            
+            let fdate = a.date || '';
+            if (fdate && fdate.length > 10) fdate = fdate.substring(0,10);
+            return {
+                title: a.title,
+                url: a.url,
+                date: fdate,
+                source: a.source,
+                states: gd,
+                origin_search_term: a.origin_search_term,
+                image: a.image_url
+            };
+        });
+        
+        collectedArticles = parsed;
+        extractedStatesGlobal = [];
+        parsed.forEach(a => {
+            if(a.states && Array.isArray(a.states)) {
+                extractedStatesGlobal.push(...a.states);
+            }
+        });
+        
+        currentFilter = { state: 'ALL', source: 'ALL', search: '' };
+        rebuildAnalyticsData();
+        updateChartsAndMap();
+        
+        switchTab('view-analytics');
+        updateStatus(`Aggregated ${parsed.length} unique articles across ${data.executions.length} runs.`);
+    } catch(e) {
+        console.error(e);
+        updateStatus('Error aggregating executions', true);
+    }
+};
+
+window.removeAggregatedRun = function(id) {
+    selectedHistoryRuns.delete(id);
+    if(selectedHistoryRuns.size >= 2) {
+        mapSelectedHistory(); // Re-fetch without this run
+    } else {
+        clearAllAggregatedRuns();
+    }
+};
+
+window.clearAllAggregatedRuns = function() {
+    selectedHistoryRuns.clear();
+    multiRunMode = false;
+    const activeRunsContainer = document.getElementById('activeRunsContainer');
+    if(activeRunsContainer) activeRunsContainer.innerHTML = '';
+    
+    // Clear data
+    collectedArticles = [];
+    extractedStatesGlobal = [];
+    currentFilter = { state: 'ALL', source: 'ALL', search: '' };
+    rebuildAnalyticsData();
+    updateChartsAndMap();
+    
+    updateHistorySelectionUI();
+    switchTab('view-history');
+};
 
 async function loadHistory() {
     try {
@@ -1504,13 +1680,18 @@ function renderHistoryTable() {
             statusBadge = `<span class="px-2 py-0.5 ml-2 bg-gray-100 text-gray-800 text-[10px] font-bold rounded-full border border-gray-200">${run.status}</span>`;
         }
         
+        const isUnanalyzed = (run.status === 'SCRAPED' || run.status === 'ERROR' || !run.total_articles || run.total_articles == 0);
+        
         tr.innerHTML = `
+            <td class="py-2 px-3 align-middle text-center">
+                <input type="checkbox" class="history-row-checkbox accent-primary w-4 h-4 cursor-pointer" value="${run.execution_id}" ${isUnanalyzed ? 'disabled' : ''} onchange="updateHistorySelection()">
+            </td>
             <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
             <td class="py-2 px-3 align-middle">${scrapedOnHtml}</td>
             <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
             <td class="py-2 px-3 align-middle text-right">
-                <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View">
+                <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View" ${isUnanalyzed ? 'disabled style="opacity:0.5"' : ''}>
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </button>
                 <button onclick="exportHistory('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded" title="Export JSON">
@@ -1530,9 +1711,12 @@ function renderHistoryTable() {
         states.forEach((visible, i) => {
             const cb = document.querySelector('#historyColumnToggle input:nth-child(' + (i+1) + ')');
             if (cb) cb.checked = visible;
-            updateHistoryCols(i, false);
+            updateHistoryCols(i + 1, false);
         });
     }
+    
+    // Restore master checkbox state and update selection UI
+    updateHistorySelection();
 }
 
 window.onHistoryFilterChange = onHistoryFilterChange;
@@ -1552,8 +1736,13 @@ window.updateHistoryCols = function(colIdx, save = true) {
     
     let isVisible = true;
     const labels = document.querySelectorAll('#historyColumnToggle label input');
-    if (labels && labels[colIdx]) {
-        isVisible = labels[colIdx].checked;
+    
+    // colIdx passed from HTML is now the table cell index (1-based because 0 is checkbox)
+    // The labels array is still 0-based
+    const labelIdx = colIdx - 1; 
+
+    if (labels && labels[labelIdx]) {
+        isVisible = labels[labelIdx].checked;
     }
     
     const trs = table.querySelectorAll('tr');
@@ -1576,6 +1765,13 @@ window.viewExecution = async function(execution_id) {
         const response = await fetch('/api/history/' + execution_id);
         if (!response.ok) throw new Error('Execution load failed');
         const data = await response.json();
+        
+        // Reset multi-run state
+        multiRunMode = false;
+        selectedHistoryRuns.clear();
+        const activeRunsContainer = document.getElementById('activeRunsContainer');
+        if(activeRunsContainer) activeRunsContainer.innerHTML = '';
+        updateHistorySelectionUI();
         
         // Reset local statistics and analytics state
         totalArticles = 0;

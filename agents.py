@@ -866,3 +866,26 @@ class OrchestratorAgent:
                 "execution": dict(exec_record),
                 "articles": [dict(a) for a in articles]
             }
+
+    async def get_aggregated_history(self, execution_ids):
+        if not self.history_db:
+            await self.init_history_db()
+            
+        async with self.history_db.acquire() as conn:
+            articles = await conn.fetch("""
+                SELECT DISTINCT ON (a.article_id) 
+                    a.*, 
+                    se.search_term as origin_search_term
+                FROM articles a
+                JOIN search_executions se ON a.execution_id = se.execution_id
+                WHERE a.execution_id = ANY($1)
+            """, execution_ids)
+            
+            executions = await conn.fetch("""
+                SELECT * FROM search_executions WHERE execution_id = ANY($1)
+            """, execution_ids)
+            
+            return {
+                "executions": [dict(e) for e in executions],
+                "articles": [dict(a) for a in articles]
+            }

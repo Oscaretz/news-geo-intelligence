@@ -427,6 +427,49 @@ def get_history_detail(execution_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/analytics/aggregate', methods=['POST'])
+def aggregate_analytics():
+    data = request.get_json(silent=True) or {}
+    execution_ids = data.get('execution_ids', [])
+    print(f"AGGREGATE CALLED with ids: {execution_ids}", flush=True)
+    
+    if not execution_ids or not isinstance(execution_ids, list):
+        return jsonify({"error": "Invalid or missing execution_ids"}), 400
+
+    async def _fetch():
+        from agents import OrchestratorAgent
+        orchestrator = OrchestratorAgent()
+        try:
+            return await orchestrator.get_aggregated_history(execution_ids)
+        finally:
+            await orchestrator.close()
+
+    try:
+        import datetime
+        def to_iso(dt):
+            if not dt: return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt.isoformat()
+
+        detail = asyncio.run(_fetch())
+        print(f"AGGREGATE FETCH RETURNED: {detail}", flush=True)
+        if not detail or not detail.get('executions'):
+            return jsonify({"error": "No executions found"}), 404
+            
+        for exec_record in detail['executions']:
+            if 'timestamp' in exec_record and exec_record['timestamp']:
+                exec_record['timestamp'] = to_iso(exec_record['timestamp'])
+            if 'end_time' in exec_record and exec_record['end_time']:
+                exec_record['end_time'] = to_iso(exec_record['end_time'])
+            if 'scraped_at' in exec_record and exec_record['scraped_at']:
+                exec_record['scraped_at'] = to_iso(exec_record['scraped_at'])
+            
+        return jsonify(detail)
+    except Exception as e:
+        print(f"AGGREGATE ERROR: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     try:
         from dotenv import load_dotenv
