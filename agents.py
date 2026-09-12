@@ -1,4 +1,5 @@
 from static.py.job_progress_store import update_progress
+from static.py.geojson_cache import get_map_config, get_geojson, get_valid_regions, preload_all
 import os
 import re
 import json
@@ -134,13 +135,10 @@ class GoogleSearchAgent:
     """Agent for Stage 1: Fast Discovery, Rich Metadata & Deduplication."""
     
     def __init__(self):
-        # Cache configuration during initialization to avoid blocking disk I/O on every search
-        config_path = os.path.join(BASE_DIR, "static", "maps", "map_config.json")
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                self.map_config = json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load map_config.json: {e}")
+        # Use the in-memory singleton — no disk I/O on every instantiation
+        from static.py.geojson_cache import get_full_map_config
+        self.map_config = get_full_map_config()
+        if not self.map_config:
             self.map_config = {"mx": {"gl": "MX", "hl": "es", "ceid": "MX:es"}}
 
     async def search(self, session: AsyncSession, search_params: dict) -> list:
@@ -303,16 +301,13 @@ class NLPAgent:
 
         compressed_text = self._compress_text(text[:1800])
 
-        config_path = os.path.join(BASE_DIR, "static", "maps", "map_config.json")
-        geojson_path = os.path.join(BASE_DIR, "static", "maps", f"{country}_states.geojson")
-        
+        # ── In-memory lookups — no disk I/O ───────────────────────────────
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f).get(country, {})
-            with open(geojson_path, "r", encoding="utf-8") as f:
-                geojson_data = json.load(f)
-            
-            valid_regions = [feat["properties"]["state_name"] for feat in geojson_data.get("features", [])]
+            config = get_map_config(country)
+            valid_regions = get_valid_regions(country)
+            if not valid_regions:
+                logger.error(f"❌ [NLPAgent] No valid regions found for country '{country}'")
+                return []
             valid_regions_str = ", ".join(valid_regions)
             country_name = config.get("country_name", country)
             llm_hints = config.get("llm_hints", "")

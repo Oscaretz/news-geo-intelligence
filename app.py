@@ -29,8 +29,8 @@ from agents import OrchestratorAgent
 from dagster import DagsterInstance, reconstructable
 import dagster_pipeline
 from static.py.job_progress_store import get_progress
-
 from static.py.phase2_queue import queue_manager
+from static.py.geojson_cache import preload_all, get_geojson, get_available_countries
 
 import logging
 class NoJobsFilter(logging.Filter):
@@ -40,7 +40,60 @@ class NoJobsFilter(logging.Filter):
 logging.getLogger('werkzeug').addFilter(NoJobsFilter())
 
 app = Flask(__name__)
+
+# ── Payload compression (Gzip / Brotli) ────────────────────────────────────
+try:
+    from flask_compress import Compress
+    _compress = Compress()
+    _compress.init_app(app)
+    app.config['COMPRESS_REGISTER'] = True
+    app.config['COMPRESS_MIMETYPES'] = [
+        'application/json',
+        'text/html',
+        'text/plain',
+        'text/css',
+        'application/javascript',
+    ]
+    app.config['COMPRESS_MIN_SIZE'] = 500  # bytes — skip tiny payloads
+    logging.getLogger(__name__).info("[app] ✅ flask_compress enabled (Gzip/Brotli)")
+except ImportError:
+    logging.getLogger(__name__).warning("[app] ⚠️  flask_compress not installed — responses will be uncompressed")
+
+# ── GeoJSON in-memory preload ───────────────────────────────────────────────
+preload_all()
+
+# ── Database index migration (idempotent, runs at startup) ──────────────────
+def _apply_db_indexes_background():
+    """Run index migration in a background thread so startup isn't blocked."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+    db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@postgres:5432/history_db')
+    # Remap Docker hostname when running locally
+    if '@postgres:' in db_url:
+        db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+    try:
+        from static.py.db_indexes import apply_indexes_sync
+        apply_indexes_sync(db_url)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(f"[app] DB index migration skipped (DB may be offline): {exc}")
+
+threading.Thread(target=_apply_db_indexes_background, daemon=True).start()
+
 queue_manager.start()
+
+
+# ── Serialization helper ─────────────────────────────────────────────────────
+def _strip_nulls(obj):
+    """Recursively remove None/empty values from dicts to reduce payload size."""
+    if isinstance(obj, dict):
+        return {k: _strip_nulls(v) for k, v in obj.items() if v is not None and v != "" and v != []}
+    if isinstance(obj, list):
+        return [_strip_nulls(i) for i in obj]
+    return obj
+
 
 
 # Hilo para la Etapa 2 (Streaming)
@@ -390,7 +443,7 @@ def get_history_list():
                 run['end_time'] = to_iso(run['end_time'])
             if 'scraped_at' in run and run['scraped_at']:
                 run['scraped_at'] = to_iso(run['scraped_at'])
-        return jsonify(history)
+        return jsonify(_strip_nulls(history))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -465,10 +518,32 @@ def aggregate_analytics():
             if 'scraped_at' in exec_record and exec_record['scraped_at']:
                 exec_record['scraped_at'] = to_iso(exec_record['scraped_at'])
             
-        return jsonify(detail)
+        return jsonify(_strip_nulls(detail))
     except Exception as e:
         print(f"AGGREGATE ERROR: {e}", flush=True)
         return jsonify({"error": str(e)}), 500
+
+
+# ── In-memory GeoJSON endpoint ──────────────────────────────────────────────
+@app.route('/api/geojson/<country>', methods=['GET'])
+def get_geojson_endpoint(country):
+    """
+    Serve GeoJSON FeatureCollections directly from memory — no disk I/O.
+    Previously this was delegated to static file serving which re-parsed
+    the 361 KB mx_states.geojson on every request.
+    """
+    data = get_geojson(country.lower())
+    if not data:
+        return jsonify({"error": f"No GeoJSON found for country '{country}'"}), 404
+    # flask_compress will automatically Gzip/Brotli this large payload
+    return jsonify(data)
+
+
+@app.route('/api/geojson', methods=['GET'])
+def list_geojson_countries():
+    """Return the list of country keys that have preloaded GeoJSON data."""
+    return jsonify(get_available_countries())
+
 
 if __name__ == '__main__':
     try:
