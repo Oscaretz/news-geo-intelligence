@@ -1833,6 +1833,7 @@ window.viewExecution = async function(execution_id) {
         // Reset multi-run state
         multiRunMode = false;
         selectedHistoryRuns.clear();
+        window.currentDiscoveryExecutionId = execution_id;
         const activeRunsContainer = document.getElementById('activeRunsContainer');
         if(activeRunsContainer) activeRunsContainer.innerHTML = '';
         updateHistorySelectionUI();

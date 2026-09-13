@@ -167,7 +167,10 @@ def api_discovery():
             
     try:
         articles = asyncio.run(_fetch())
-        return jsonify(articles)
+        return jsonify({
+            "execution_id": execution_id,
+            "articles": articles
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

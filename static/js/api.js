@@ -101,20 +101,23 @@ async function fetchDiscovery() {
             throw new Error(`Status ${response.status}: ${errMsg}`);
         }
         const data = await response.json();
+        const articles = data.articles || data;
+        if (data.execution_id) {
+            window.currentDiscoveryExecutionId = data.execution_id;
+        }
 
         const selectedCountry = countryChecked?.value || 'mx';
         if (typeof loadMapForCountry === 'function') {
             await loadMapForCountry(selectedCountry);
         }
 
-        //updateStatus(`✅ ${data.length} artículos encontrados.`);
         updateStatus(`Artículos recolectados con éxito.`);
 
-        if (data.length === 0) {
+        if (articles.length === 0) {
             renderTopStories([], "No articles found matching your criteria.");
             renderFullFeed();
         } else {
-            data.forEach(article => {
+            articles.forEach(article => {
                 // Idempotencia: Evitar procesar el artículo en gráficas y KPIs si ya fue ingresado
                 if (collectedArticles.some(a => a.url === article.url)) return;
                 
@@ -155,21 +158,56 @@ async function startStreamMapping() {
         await loadMapForCountry(selectedCountry);
     }
     
+    // Si estamos en modo multi-run (historial múltiple)
+    if (typeof multiRunMode !== 'undefined' && multiRunMode && typeof selectedHistoryRuns !== 'undefined' && selectedHistoryRuns.size > 0) {
+        updateStatus(`Enviando ${selectedHistoryRuns.size} jobs a análisis...`);
+        try {
+            for (let id of selectedHistoryRuns) {
+                await fetch(`/api/jobs/${id}/analyze`, { method: 'POST' });
+            }
+            updateStatus(`Jobs enviados a análisis con éxito.`);
+            if(typeof switchTab === 'function') switchTab('jobs');
+            fetchJobs();
+            return;
+        } catch (e) {
+            updateStatus(`❌ Error enviando a análisis: ${e}`);
+            return;
+        }
+    }
+
+    // Si tenemos un job de discovery o historial cargado en pantalla
+    if (window.currentDiscoveryExecutionId) {
+        updateStatus(`Enviando a análisis...`);
+        try {
+            const response = await fetch(`/api/jobs/${window.currentDiscoveryExecutionId}/analyze`, { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                updateStatus(`✅ Job de análisis iniciado (ID: ${window.currentDiscoveryExecutionId.substring(0,8)}...)`);
+                if(typeof switchTab === 'function') switchTab('jobs');
+                fetchJobs();
+            } else {
+                updateStatus(`❌ Error: ${data.error}`);
+            }
+        } catch(e) {
+            updateStatus(`❌ Error de conexión: ${e}`);
+        }
+        return;
+    }
+
+    // Fallback: si no hay ID, iniciar desde cero (comportamiento original)
     const qs = buildQueryString();
-    
     try {
         const response = await fetch(`/api/jobs/start${qs}`, { method: 'POST' });
         const data = await response.json();
         if (data.run_id) {
-            updateStatus(`🚀 Job iniciado con éxito (ID: ${data.run_id.substring(0,8)}...)`);
-            // Switch to Jobs tab to monitor
-            switchTab('jobs');
+            updateStatus(`✅ Job iniciado con éxito (ID: ${data.run_id.substring(0,8)}...)`);
+            if(typeof switchTab === 'function') switchTab('jobs');
             fetchJobs();
         } else {
-            updateStatus(`❌ Failed to start job: ${data.error}`);
+            updateStatus(`❌ Error: ${data.error}`);
         }
     } catch (err) {
-        updateStatus(`❌ Error starting job: ${err}`);
+        updateStatus(`❌ Error: ${err}`);
     }
 }
 
