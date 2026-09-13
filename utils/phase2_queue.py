@@ -2,7 +2,7 @@ import asyncio
 import threading
 import time
 from agents import OrchestratorAgent
-from static.py.job_progress_store import update_progress
+from utils.job_progress_store import update_progress
 
 class QueueManager:
     def __init__(self):

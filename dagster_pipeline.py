@@ -24,7 +24,7 @@ class SearchConfig(Config):
     qoption: str = ""
     qsite: str = ""
 
-from static.py.job_progress_store import update_progress
+from utils.job_progress_store import update_progress
 import hashlib
 import json
 

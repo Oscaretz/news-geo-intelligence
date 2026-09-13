@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
-from static.py.job_progress_store import update_progress
-from static.py.geojson_cache import get_map_config, get_geojson, get_valid_regions, preload_all
+from utils.job_progress_store import update_progress
+from utils.geojson_cache import get_map_config, get_geojson, get_valid_regions, preload_all
 import os
 import re
 import json
@@ -138,7 +138,7 @@ class GoogleSearchAgent:
     
     def __init__(self):
         # Use the in-memory singleton — no disk I/O on every instantiation
-        from static.py.geojson_cache import get_full_map_config
+        from utils.geojson_cache import get_full_map_config
         self.map_config = get_full_map_config()
         if not self.map_config:
             self.map_config = {"mx": {"gl": "MX", "hl": "es", "ceid": "MX:es"}}
@@ -497,7 +497,15 @@ class OrchestratorAgent:
             
             async with self.history_db.acquire() as conn:
                 await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS search_executions (
+                    CREATE TABLE IF NOT EXISTS chat_history (
+                    id SERIAL PRIMARY KEY,
+                    execution_id VARCHAR(50) NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    encrypted_content TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                
+                CREATE TABLE IF NOT EXISTS search_executions (
                         execution_id TEXT PRIMARY KEY,
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         search_term TEXT,

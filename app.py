@@ -28,9 +28,9 @@ from flask import Flask, render_template, request, Response, jsonify
 from agents import OrchestratorAgent
 from dagster import DagsterInstance, reconstructable
 import dagster_pipeline
-from static.py.job_progress_store import get_progress
-from static.py.phase2_queue import queue_manager
-from static.py.geojson_cache import preload_all, get_geojson, get_available_countries
+from utils.job_progress_store import get_progress
+from utils.phase2_queue import queue_manager
+from utils.geojson_cache import preload_all, get_geojson, get_available_countries
 
 import logging
 class NoJobsFilter(logging.Filter):
@@ -40,6 +40,42 @@ class NoJobsFilter(logging.Filter):
 logging.getLogger('werkzeug').addFilter(NoJobsFilter())
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
+
+csp = {
+    'default-src': ["'self'"],
+    'script-src': [
+        "'self'", "'unsafe-inline'", "'unsafe-eval'", 
+        'https://cdn.tailwindcss.com', 'https://cdnjs.cloudflare.com', 
+        'https://unpkg.com', 'https://cdn.jsdelivr.net'
+    ],
+    'style-src': [
+        "'self'", "'unsafe-inline'", 
+        'https://fonts.googleapis.com', 'https://unpkg.com', 'https://cdn.jsdelivr.net'
+    ],
+    'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
+    'img-src': ["'self'", 'data:', 'https:', 'blob:'],
+    'connect-src': ["'self'", 'https:']
+}
+
+# In local development, we shouldn't force HTTPS or we will break http://127.0.0.1:5000
+# We check if FLASK_ENV is development or if running locally
+is_dev = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DAGSTER_HOME') is not None
+from flask_talisman import Talisman
+talisman = Talisman(
+    app,
+    content_security_policy=csp,
+    force_https=not is_dev,
+    strict_transport_security=not is_dev,
+    session_cookie_secure=True,
+    session_cookie_http_only=True,
+    session_cookie_samesite='Lax'
+)
 
 import time
 import re
@@ -53,24 +89,7 @@ def internal_server_error(e):
     return jsonify({"error": "Internal server error occurred."}), 500
 
 # ── Security: Security Headers & CORS ────────────────────────────────────────
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:;"
-    
-    # Basic CORS for local and production origins
-    allowed = os.environ.get('CORS_ALLOWED_ORIGINS', '*')
-    if allowed != '*':
-        origin = request.headers.get('Origin')
-        if origin and origin in allowed.split(','):
-            response.headers['Access-Control-Allow-Origin'] = origin
-    else:
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    return response
+
 
 # ── Security: Lightweight Rate Limiter ───────────────────────────────────────
 _rate_limits = defaultdict(list)
@@ -107,6 +126,7 @@ def sanitize_payload(payload):
 # ── Payload compression (Gzip / Brotli) ────────────────────────────────────
 try:
     from flask_compress import Compress
+
     _compress = Compress()
     _compress.init_app(app)
     app.config['COMPRESS_REGISTER'] = True
@@ -138,7 +158,7 @@ def _apply_db_indexes_background():
     if db_url and '@postgres:' in db_url and not os.path.exists('/.dockerenv'):
         db_url = db_url.replace('@postgres:5432', '@localhost:5433')
     try:
-        from static.py.db_indexes import apply_indexes_sync
+        from utils.db_indexes import apply_indexes_sync
         apply_indexes_sync(db_url)
     except Exception as exc:
         logging.getLogger(__name__).warning(f"[app] DB index migration skipped (DB may be offline): {exc}")
@@ -619,6 +639,45 @@ def list_geojson_countries():
 
 
 # ── Analytic Chatbot SSE Endpoint ─────────────────────────────────────────────
+
+@app.route('/api/chat/history', methods=['GET'])
+def get_chat_history():
+    execution_id = request.args.get('execution_id')
+    if not execution_id:
+        return jsonify({"error": "execution_id required"}), 400
+        
+    try:
+        from utils.crypto import decrypt_data
+        import asyncpg
+        import asyncio
+        import os
+        
+        async def fetch_history():
+            db_url = os.environ.get('DATABASE_URL')
+            if db_url and '@postgres:' in db_url:
+                db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+            elif not db_url:
+                db_url = "postgresql://admin:admin123@localhost:5433/history_db"
+                
+            conn = await asyncpg.connect(db_url)
+            rows = await conn.fetch("SELECT role, encrypted_content, timestamp FROM chat_history WHERE execution_id = $1 ORDER BY timestamp ASC", execution_id)
+            await conn.close()
+            
+            history = []
+            for r in rows:
+                history.append({
+                    "role": r['role'],
+                    "content": decrypt_data(r['encrypted_content']),
+                    "timestamp": r['timestamp'].isoformat()
+                })
+            return history
+            
+        history = asyncio.run(fetch_history())
+        return jsonify(history)
+    except Exception as e:
+        app.logger.error(f"Error fetching chat history: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/chat/info', methods=['GET'])
 def chat_info():
     """

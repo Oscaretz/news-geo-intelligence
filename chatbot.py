@@ -15,6 +15,7 @@ import time
 import json
 import logging
 import asyncpg
+from utils.crypto import encrypt_data, decrypt_data
 from collections import defaultdict
 from typing import AsyncGenerator
 
@@ -354,12 +355,14 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
             temperature=0.3,
         )
 
+        full_response = ''
         async for chunk in await client.aio.models.generate_content_stream(
             model=GEMINI_MODEL,
             contents=user_prompt,
             config=config,
         ):
             if chunk.text:
+                full_response += chunk.text
                 # Escape newlines for SSE single-line data field
                 text = chunk.text.replace("\n", "\\n")
                 yield f"data: {text}\n\n"
@@ -370,13 +373,54 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
                 if fr and "MAX_TOKENS" in str(fr):
                     yield "data: \\n\\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\\n\\n\n\n"
 
+        # Save encrypted chat history to DB
+        try:
+            if execution_id:
+                enc_prompt = encrypt_data(clean_q)
+                enc_response = encrypt_data(full_response)
+                
+                db_url = os.environ.get('DATABASE_URL')
+                if db_url and '@postgres:' in db_url:
+                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+                elif not db_url:
+                    db_url = "postgresql://admin:admin123@localhost:5433/history_db"
+                
+                conn = await asyncpg.connect(db_url)
+                await conn.execute(
+                    "INSERT INTO chat_history (execution_id, role, encrypted_content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)",
+                    execution_id, enc_prompt, enc_response
+                )
+                await conn.close()
+        except Exception as db_err:
+            logger.error(f"[ChatBot] Error saving chat history: {db_err}")
+
         yield "data: [DONE]\n\n"
+
 
     except Exception as e:
         err = str(e)
         logger.error(f"[ChatBot] Gemini error: {err}")
         if "429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower():
-            yield "data: [QUOTA] El servicio de IA ha alcanzado su cuota. Intenta en unos minutos.\\n\\n"
+            full_response += "\n[QUOTA] Error"
+            yield "data: [QUOTA] El servicio de IA ha alcanzado su cuota. Intenta en unos minutos.\n\n"
         else:
-            yield f"data: [ERROR] Se interrumpió la conexión con el modelo (Error: {err[:80]}). Intenta de nuevo.\\n\\n"
+            full_response += f"\n[ERROR] {err[:80]}"
+            yield f"data: [ERROR] Se interrumpi? la conexi?n con el modelo (Error: {err[:80]}). Intenta de nuevo.\n\n"
+            
+        try:
+            if execution_id:
+                enc_prompt = encrypt_data(clean_q)
+                enc_response = encrypt_data(full_response)
+                db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+                if '@postgres:' in db_url:
+                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+                conn = await asyncpg.connect(db_url)
+                await conn.execute(
+                    "INSERT INTO chat_history (execution_id, role, encrypted_content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)",
+                    execution_id, enc_prompt, enc_response
+                )
+                await conn.close()
+        except Exception as db_err:
+            pass
+
         yield "data: [DONE]\n\n"
