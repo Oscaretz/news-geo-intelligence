@@ -19,3 +19,6 @@ asyncpg
 psycopg2-binary
 dagster
 dagster-webserver
+
+Flask-Talisman
+cryptography
