@@ -345,7 +345,7 @@ function renderTopStories(articles = null, emptyMessage = null) {
                     <span class="text-xs font-medium uppercase tracking-wider" data-i18n="newsPreview">News Preview</span>
                 </div>
                 <h3 class="text-title-md font-title-md text-on-surface mb-1 leading-snug" data-i18n="waitingForSearch">Waiting for search...</h3>
-                <p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time.</p>
+                <p class="text-body-md text-on-surface-variant mb-2 leading-relaxed" data-i18n="welcomeInstructions">Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time.</p>
                 <div class="flex items-center gap-2 text-label-md text-on-surface-variant">
                     <span class="px-2 py-0.5 rounded bg-surface-container text-xs font-medium text-on-surface-variant">AI News Explorer</span>
                     <span>·</span>

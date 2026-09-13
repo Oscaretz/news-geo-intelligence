@@ -7,7 +7,7 @@
   "mainSearch": "Main Search",
   "analyticsMaps": "Analytics & Maps",
   "history": "History",
-  "jobs": "Queue / Jobs",
+  "jobs": "Jobs",
   "techDocs": "Technical Documentation",
   "userManual": "User Manual",
   "newsSummary": "News Summary",
@@ -71,5 +71,8 @@
   "justNow": "Just now",
   "minsAgo": "mins ago",
   "hourAgo": "hour ago",
-  "hoursAgo": "hours ago"
+  "hoursAgo": "hours ago",
+  "selectDates": "Select dates...",
+  "searchHistory": "Search history...",
+  "welcomeInstructions": "Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time."
 }

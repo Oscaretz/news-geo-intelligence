@@ -71,7 +71,7 @@
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1">Date Range</label>
 <div class="relative">
-<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." readonly>
+<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." data-i18n="selectDates" readonly>
 <span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
 </div>
 </div>
@@ -155,7 +155,7 @@
 <span class="text-body-md font-body-md" data-i18n="history">History</span>
 </button>
 <button id="tab-jobs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('jobs')">
-<span class="text-body-md font-body-md" data-i18n="jobs">Queue / Jobs</span>
+<span class="text-body-md font-body-md" data-i18n="jobs">Jobs</span>
 </button>
 <button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
 <span class="text-body-md font-body-md" data-i18n="techDocs">Technical Documentation</span>
@@ -209,7 +209,7 @@
                                 <!-- Date Filter -->
                                 <div class="mb-3">
                                     <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="dateLabel">Date</p>
-                                    <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." readonly>
+                                    <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." data-i18n="selectDates" readonly>
                                 </div>
                                 <!-- Source Filter -->
                                 <div class="mb-3">
@@ -257,11 +257,11 @@
 
         <!-- Power BI-style Filter Toolbar -->
         <div class="bg-surface-container-lowest rounded-xl border border-white/40 custom-shadow px-md py-sm flex flex-wrap items-center gap-3 w-full" style="position:relative; z-index:40;">
-            <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex-shrink-0">Filters</span>
+            <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex-shrink-0" data-i18n="filters">Filters</span>
 
             <!-- Date filter dropdown -->
             <div class="relative w-48">
-                <input type="text" id="analyticsDateFilter" class="w-full bg-surface-container border border-outline-variant/30 text-body-md text-on-surface rounded-full px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary-container cursor-pointer text-sm" placeholder="Select dates..." readonly>
+                <input type="text" id="analyticsDateFilter" class="w-full bg-surface-container border border-outline-variant/30 text-body-md text-on-surface rounded-full px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary-container cursor-pointer text-sm" placeholder="Select dates..." data-i18n="selectDates" readonly>
             </div>
 
             <!-- States multi-select popover -->
@@ -321,19 +321,19 @@
             <div class="lg:col-span-4 flex flex-col gap-4">
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#4285F4]">
                     <div class="text-4xl font-bold text-primary mb-1" id="kpiTotal">0</div>
-                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Articles</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="articles">Articles</div>
                 </div>
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#EA4335]">
                     <div class="text-4xl font-bold text-primary mb-1" id="kpiCoverage">0</div>
-                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Locations</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="locations">Locations</div>
                 </div>
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#FBBC04]">
                     <div class="text-2xl font-bold text-primary mb-1 text-center leading-tight" id="kpiEpicenter">—</div>
-                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Epicenter</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="epicenter">Epicenter</div>
                 </div>
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#34A853]">
                     <div class="text-xl font-bold text-primary mb-1 text-center leading-tight line-clamp-2" id="kpiTopSource">—</div>
-                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide">Top Source</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="topSource">Top Source</div>
                 </div>
             </div>
         </div>
@@ -472,7 +472,7 @@
                     <button id="mapSelectedBtn" onclick="mapSelectedHistory()" class="hidden px-3 py-1.5 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm">
                         <span class="material-symbols-outlined text-[18px]">map</span> <span id="mapSelectedCount">Map Selected (0)</span>
                     </button>
-                    <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." data-i18n="searchHistory" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     
                     <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
                         <option value="ALL" data-i18n="allStatuses">All Statuses</option>
@@ -486,7 +486,7 @@
                     </label>
 
                     <button onclick="toggleHistoryColumns()" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-md text-on-surface-variant transition-colors flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[18px]">view_column</span> Columns
+                        <span class="material-symbols-outlined text-[18px]">view_column</span> <span data-i18n="columns">Columns</span>
                     </button>
                 </div>
             </div>

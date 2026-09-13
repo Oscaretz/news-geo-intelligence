@@ -7,7 +7,7 @@
   "mainSearch": "Búsqueda Principal",
   "analyticsMaps": "Análisis y Mapas",
   "history": "Historial",
-  "jobs": "Cola / Trabajos",
+  "jobs": "Trabajos",
   "techDocs": "Documentación Técnica",
   "userManual": "Manual de Usuario",
   "newsSummary": "Resumen de Noticias",
@@ -71,5 +71,8 @@
   "justNow": "Hace un momento",
   "minsAgo": "minutos",
   "hourAgo": "hace 1 hora",
-  "hoursAgo": "horas"
+  "hoursAgo": "horas",
+  "selectDates": "Seleccionar fechas...",
+  "searchHistory": "Buscar historial...",
+  "welcomeInstructions": "Ingresa una palabra clave, tema o entidad en la barra de búsqueda de arriba para extraer y analizar artículos de noticias en tiempo real."
 }
