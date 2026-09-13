@@ -22,3 +22,6 @@ tailwindcss.exe
 
 *.exe
 extra/tailwindcss.exe
+
+# Archivos temporales, scripts de prueba unicos y binarios locales
+extra/
