@@ -47,12 +47,12 @@ def run_search_pipeline(context, config: SearchConfig):
         try:
             update_progress(run_id, 10, "Fetching discovery (10%)...")
             # Fase 1: Scraping, resolución de texto completo y pre-guardado en cache
-            await orchestrator.fetch_discovery(search_params)
+            execution_id, _ = await orchestrator.fetch_discovery(search_params)
             
             update_progress(run_id, 40, "Extracting articles (40%)...")
             # Fase 2: Inferencia LLM, geolocalización y guardado en PostgreSQL (History)
             
-            async for event in orchestrator.map_stream(search_params):
+            async for event in orchestrator.map_stream(execution_id):
                 current = event.get("current", 0)
                 target = max(event.get("target", 1), 1)
                 
