@@ -2394,8 +2394,9 @@ async function sendChatMessage() {
     inputEl.value = '';
     inputEl.style.height = 'auto'; // reset resize
     appendChatMessage('user', text);
-    const botMsgDiv = appendChatMessage('bot', '<span class="animate-pulse text-on-surface-variant">Analizando dataset...</span>');
+    const botMsgDiv = appendChatMessage('bot', '');
     const botContentDiv = botMsgDiv.querySelector('.chat-markdown');
+    botContentDiv.innerHTML = '<span class="animate-pulse text-on-surface-variant">Analizando dataset...</span>';
     
     isChatStreaming = true;
     document.getElementById('chat-send-btn').disabled = true;
