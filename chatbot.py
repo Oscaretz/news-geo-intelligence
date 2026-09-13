@@ -383,7 +383,7 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
         client = _get_client()
         config = types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION,
-            max_output_tokens=700,
+            max_output_tokens=1500,
             temperature=0.3,
         )
 
@@ -396,6 +396,12 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
                 # Escape newlines for SSE single-line data field
                 text = chunk.text.replace("\n", "\\n")
                 yield f"data: {text}\n\n"
+                
+            # Detect if it was cut off due to token limits
+            if chunk.candidates and len(chunk.candidates) > 0:
+                fr = chunk.candidates[0].finish_reason
+                if fr and "MAX_TOKENS" in str(fr):
+                    yield "data: \\n\\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\\n\\n\n\n"
 
         yield "data: [DONE]\n\n"
 
@@ -405,5 +411,5 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
         if "429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower():
             yield "data: [QUOTA] El servicio de IA ha alcanzado su cuota. Intenta en unos minutos.\\n\\n"
         else:
-            yield f"data: [ERROR] Error al procesar: {err[:120]}\\n\\n"
+            yield f"data: [ERROR] Se interrumpió la conexión con el modelo (Error: {err[:80]}). Intenta de nuevo.\\n\\n"
         yield "data: [DONE]\n\n"
