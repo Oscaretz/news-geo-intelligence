@@ -202,66 +202,114 @@ async def _quant_context(execution_id):
             dr = await c.fetchrow("SELECT MIN(date) earliest, MAX(date) latest FROM articles WHERE execution_id = $1 AND date IS NOT NULL", execution_id)
         else:
             dr = await c.fetchrow("SELECT MIN(date) earliest, MAX(date) latest FROM articles WHERE date IS NOT NULL")
-        if dr and dr["earliest"]:
-            lines.append(f"Rango de fechas: {dr['earliest']} a {dr['latest']}")
+# 5. DATABASE CONTEXT BUILDERS (RAG)
+# ==============================================================================
 
-        # recent executions
-        exs = await c.fetch("SELECT search_term, status, scraped_at FROM search_executions ORDER BY scraped_at DESC NULLS LAST LIMIT 5")
-        if exs:
-            lines.append("Busquedas recientes en el dataset:")
-            for e in exs:
-                lines.append(f"  - '{e['search_term']}' ({e['status']}) rastreado: {e['scraped_at']}")
+async def _quant_context(question, execution_id):
+    lines = []
+    
+    # We use a short-lived connection to avoid event-loop sharing issues in Flask's threading model
+    conn = await asyncpg.connect(os.environ.get("DATABASE_URL", "postgresql://admin:admin123@postgres:5432/history_db"))
+    try:
+        if execution_id:
+            # Check execution
+            row = await conn.fetchrow(
+                "SELECT search_term, filters, status, timestamp FROM search_executions WHERE execution_id = $1", 
+                execution_id
+            )
+            if row:
+                filters = json.loads(row['filters']) if isinstance(row['filters'], str) else row['filters']
+                lines.append(f"Contexto enfocado a un único Job de Análisis:")
+                lines.append(f"  - Término de búsqueda: {row['search_term']}")
+                lines.append(f"  - Filtros: {filters}")
+                lines.append(f"  - Estado: {row['status']} (Fecha de inicio: {row['timestamp']})")
+                
+            # Count articles
+            count = await conn.fetchval("SELECT COUNT(*) FROM articles WHERE execution_id = $1", execution_id)
+            geo_count = await conn.fetchval("SELECT COUNT(*) FROM articles WHERE execution_id = $1 AND geodata != '[]'", execution_id)
+            
+            lines.append(f"  - Total artículos en este job: {count}")
+            lines.append(f"  - Artículos con geodata: {geo_count}")
+            
+            # Sources
+            srcs = await conn.fetch(
+                "SELECT source, COUNT(*) as c FROM articles WHERE execution_id = $1 GROUP BY source ORDER BY c DESC LIMIT 5",
+                execution_id
+            )
+            if srcs:
+                lines.append("  - Fuentes más frecuentes:")
+                for s in srcs:
+                    lines.append(f"      * {s['source']}: {s['c']} artículos")
+        else:
+            # Global analytics
+            count = await conn.fetchval("SELECT COUNT(*) FROM articles")
+            geo_count = await conn.fetchval("SELECT COUNT(*) FROM articles WHERE geodata != '[]'")
+            
+            # Date range
+            dates = await conn.fetchrow("SELECT MIN(date) as mind, MAX(date) as maxd FROM articles")
+            mind = dates['mind'] if dates['mind'] else 'Desconocida'
+            maxd = dates['maxd'] if dates['maxd'] else 'Desconocida'
+            
+            lines.append(f"Contexto Global del Dataset (Todos los jobs):")
+            lines.append(f"  - Total de artículos scrapeados: {count}")
+            lines.append(f"  - Rango de fechas detectadas: {mind} a {maxd}")
+            lines.append(f"  - Artículos con estado geográfico: {geo_count}")
+            
+            # Sources
+            srcs = await conn.fetch("SELECT source, COUNT(*) as c FROM articles GROUP BY source ORDER BY c DESC LIMIT 5")
+            if srcs:
+                lines.append("  - Top 5 fuentes globales:")
+                for s in srcs:
+                    lines.append(f"      * {s['source']}: {s['c']} artículos")
+                    
+            # Active jobs
+            active = await conn.fetch("SELECT search_term, status, scraped_at FROM search_executions WHERE status IN ('SCRAPING', 'SCRAPED', 'ANALYZING')")
+            if active:
+                lines.append("  - Trabajos recientes en curso:")
+                for e in active:
+                    lines.append(f"      * '{e['search_term']}' ({e['status']}) rastreado: {e['scraped_at']}")
+    finally:
+        await conn.close()
 
     return "\n".join(lines)
 
 
 async def _qual_context(question, execution_id):
-    pool = await _get_pool()
     lines = []
     stopwords = {
-        "cual", "cuales", "cuantos", "como", "que", "donde", "cuando", "sobre",
-        "articulo", "noticias", "noticia", "that", "this", "what", "which",
+        "cual", "cuales", "cuantos", "como", "que", "donde", "cuando", "sobre", 
+        "articulo", "noticias", "noticia", "that", "this", "what", "which", 
         "where", "when", "about", "para", "con", "los", "las", "del", "the", "are",
     }
-    words = re.findall(r"\b[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{4,}\b", question.lower())
+    words = re.findall(r"\b[a-zA-ZáéíóúÁÉÍÓÚñÑ]{4,}\b", question.lower())
     keywords = [w for w in words if w not in stopwords][:5]
-
-    async with pool.acquire() as c:
+    
+    conn = await asyncpg.connect(os.environ.get("DATABASE_URL", "postgresql://admin:admin123@postgres:5432/history_db"))
+    try:
         articles = []
         if keywords:
             # Build ILIKE conditions (safe since keywords are alpha-only from regex)
             conds = " OR ".join([f"LOWER(title) LIKE '%{kw}%'" for kw in keywords])
             if execution_id:
-                articles = await c.fetch(
+                articles = await conn.fetch(
                     f"SELECT article_id, title, source, date, geodata FROM articles WHERE execution_id = $1 AND ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8",
-                    execution_id,
+                    execution_id
                 )
             else:
-                articles = await c.fetch(
+                articles = await conn.fetch(
                     f"SELECT article_id, title, source, date, geodata FROM articles WHERE ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8"
                 )
-
-        if not articles:
+                
+        if not articles and not keywords:
+            # Fallback if no keywords found, just grab latest
             if execution_id:
-                articles = await c.fetch(
-                    "SELECT article_id, title, source, date, geodata FROM articles WHERE execution_id = $1 ORDER BY date DESC NULLS LAST LIMIT 6",
-                    execution_id,
-                )
+                articles = await conn.fetch("SELECT article_id, title, source, date, geodata FROM articles WHERE execution_id = $1 ORDER BY date DESC NULLS LAST LIMIT 5", execution_id)
             else:
-                articles = await c.fetch(
-                    "SELECT article_id, title, source, date, geodata FROM articles ORDER BY date DESC NULLS LAST LIMIT 6"
-                )
-
+                articles = await conn.fetch("SELECT article_id, title, source, date, geodata FROM articles ORDER BY date DESC NULLS LAST LIMIT 5")
+                
         if articles:
-            lines.append(f"Articulos relevantes encontrados ({len(articles)}):")
+            lines.append("Extractos de artículos relevantes encontrados:")
             for a in articles:
-                geo = ""
-                if a["geodata"]:
-                    try:
-                        states = a["geodata"] if isinstance(a["geodata"], list) else json.loads(a["geodata"])
-                        if states:
-                            geo = f" | Ubicaciones: {', '.join(states)}"
-                    except Exception:
                         pass
                 lines.append(
                     f"  [Article ID: {a['article_id'][:8]}] '{a['title']}'"
