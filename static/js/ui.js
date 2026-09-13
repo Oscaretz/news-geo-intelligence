@@ -2379,7 +2379,7 @@ window.openArticleLink = function(articleId) {
     if (article && (article.real_url || article.url)) {
         window.open(article.real_url || article.url, '_blank');
     } else {
-        alert("ID de Artículo referenciado: " + articleId + "\\n(Búscalo en la tabla de resultados)");
+        alert("ID de Artículo referenciado: " + articleId + "\n(Búscalo en la tabla de resultados)");
     }
 }
 
@@ -2431,11 +2431,11 @@ async function sendChatMessage() {
             if (done) break;
             
             const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\\n');
+            const lines = chunk.split('\n');
             
             for (let line of lines) {
                 if (line.startsWith('data: ')) {
-                    const data = line.substring(6).replace(/\\\\n/g, '\\n');
+                    const data = line.substring(6).replace(/\\n/g, '\n');
                     
                     if (data.trim() === '[DONE]') {
                         // Finished
@@ -2487,7 +2487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             const container = document.getElementById('chat-messages');
-            container.innerHTML = \`
+            container.innerHTML = `
                 <div class="flex items-start gap-2 max-w-[85%]">
                   <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
@@ -2496,7 +2496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     Chat limpiado. ¿En qué más te ayudo?
                   </div>
                 </div>
-            \`;
+            `;
         });
     }
 });
