@@ -2396,7 +2396,7 @@ async function sendChatMessage() {
     appendChatMessage('user', text);
     const botMsgDiv = appendChatMessage('bot', '');
     const botContentDiv = botMsgDiv.querySelector('.chat-markdown');
-    botContentDiv.innerHTML = '<span class="animate-pulse text-on-surface-variant">Analizando dataset...</span>';
+    botContentDiv.innerHTML = '<span class="animate-pulse text-on-surface-variant">Analizando consulta...</span>';
     
     isChatStreaming = true;
     document.getElementById('chat-send-btn').disabled = true;
