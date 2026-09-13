@@ -92,6 +92,14 @@ async function fetchDiscovery() {
 
     try {
         const response = await fetch(`/api/discovery${qs}`);
+        if (!response.ok) {
+            let errMsg = 'Error de servidor';
+            try {
+                const errData = await response.json();
+                if (errData.error) errMsg = errData.error;
+            } catch(e) {}
+            throw new Error(`Status ${response.status}: ${errMsg}`);
+        }
         const data = await response.json();
 
         const selectedCountry = countryChecked?.value || 'mx';

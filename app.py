@@ -165,8 +165,11 @@ def api_discovery():
         finally:
             await orchestrator.close()
             
-    articles = asyncio.run(_fetch())
-    return jsonify(articles)
+    try:
+        articles = asyncio.run(_fetch())
+        return jsonify(articles)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # (ETAPA 2): Botón "Mapear Tendencias"
