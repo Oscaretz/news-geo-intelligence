@@ -19,3 +19,6 @@ logs/
 # Node & Build artifacts
 node_modules/
 tailwindcss.exe
+
+*.exe
+extra/tailwindcss.exe
