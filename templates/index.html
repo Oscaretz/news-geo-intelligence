@@ -615,5 +615,61 @@
 <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<!-- Chatbot FAB -->
+<button id="chatbot-fab" class="fixed bottom-6 right-6 w-14 h-14 bg-primary-container text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all z-50 group hover:scale-105" onclick="toggleChatbot()">
+  <span class="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">robot_2</span>
+</button>
+
+<!-- Chatbot Drawer -->
+<div id="chatbot-drawer" class="fixed top-0 right-0 h-full w-[400px] bg-surface shadow-2xl transform translate-x-full transition-transform duration-300 z-[60] flex flex-col border-l border-outline-variant">
+  <!-- Header -->
+  <div class="flex items-center justify-between p-4 border-b border-outline-variant bg-surface-container-low">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-primary-container/10 rounded-full flex items-center justify-center text-primary-container">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </div>
+      <div>
+        <h2 class="font-semibold text-on-surface">Data Analyst AI</h2>
+        <p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Online</p>
+      </div>
+    </div>
+    <button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-2 rounded-full transition-colors" onclick="toggleChatbot()">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  
+  <!-- Messages Area -->
+  <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f8fafd]">
+    <div class="flex items-start gap-2 max-w-[85%]">
+      <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
+        <span class="material-symbols-outlined text-sm">smart_toy</span>
+      </div>
+      <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm">
+        Hola, soy tu asistente analítico. ¿Qué te gustaría saber sobre los artículos en el dataset actual?
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="p-4 border-t border-outline-variant bg-surface">
+    <div class="relative flex items-end bg-white border border-outline-variant rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary-container/20 focus-within:border-primary-container transition-all">
+      <textarea id="chat-input" rows="1" class="w-full bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-sm text-on-surface placeholder:text-on-surface-variant/50 max-h-32" placeholder="Haz una pregunta sobre los datos..."></textarea>
+      <button id="chat-send-btn" class="absolute right-2 bottom-2 p-1.5 text-primary-container hover:bg-primary-container/10 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-xl">send</span>
+      </button>
+    </div>
+    <div class="flex justify-between items-center mt-2 px-1">
+      <span class="text-[10px] text-on-surface-variant flex items-center gap-1">
+        <span class="material-symbols-outlined text-[12px]">security</span>
+        Gemini 1.5 Flash - Dataset Context Only
+      </span>
+      <button id="chat-clear-btn" class="text-[10px] text-on-surface-variant hover:text-red-500 transition-colors">Limpiar Chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer Overlay -->
+<div id="chatbot-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden transition-opacity opacity-0" onclick="toggleChatbot()"></div>
+
 </body>
 </html>

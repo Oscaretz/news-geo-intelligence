@@ -2284,3 +2284,219 @@ async function analyzeJob(executionId) {
         console.error(e);
     }
 }
+
+// ============================================
+// Analytic Chatbot Logic
+// ============================================
+
+let isChatStreaming = false;
+
+window.toggleChatbot = function() {
+    const drawer = document.getElementById('chatbot-drawer');
+    const overlay = document.getElementById('chatbot-overlay');
+    const fab = document.getElementById('chatbot-fab');
+    
+    if (drawer.classList.contains('translate-x-full')) {
+        // Open
+        drawer.classList.remove('translate-x-full');
+        overlay.classList.remove('hidden');
+        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+        fab.classList.add('scale-0'); // hide FAB
+        
+        // Focus input
+        setTimeout(() => document.getElementById('chat-input').focus(), 300);
+    } else {
+        // Close
+        drawer.classList.add('translate-x-full');
+        overlay.classList.add('opacity-0');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+        fab.classList.remove('scale-0');
+    }
+}
+
+function appendChatMessage(role, text) {
+    const container = document.getElementById('chat-messages');
+    const msgDiv = document.createElement('div');
+    
+    if (role === 'user') {
+        msgDiv.className = "flex items-end justify-end gap-2 max-w-[85%] ml-auto";
+        msgDiv.innerHTML = `
+            <div class="bg-primary-container text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm shadow-sm">
+              ${escapeHtml(text)}
+            </div>
+        `;
+    } else {
+        msgDiv.className = "flex items-start gap-2 max-w-[95%]";
+        msgDiv.innerHTML = `
+            <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
+              <span class="material-symbols-outlined text-sm">smart_toy</span>
+            </div>
+            <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm prose prose-sm max-w-none chat-markdown">
+              ${parseChatMarkdown(text)}
+            </div>
+        `;
+    }
+    
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+    return msgDiv;
+}
+
+function escapeHtml(unsafe) {
+    return (unsafe||"")
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+function parseChatMarkdown(text) {
+    if (!text) return "";
+    let html = escapeHtml(text);
+    // Bold
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    
+    // Citations [Article ID: xxxx]
+    html = html.replace(/\[Article ID:\s*([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+        return `<button onclick="window.openArticleLink('${id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-mono transition-colors mx-1" title="Ver Artículo"><span class="material-symbols-outlined text-[10px]">article</span>${id.substring(0,8)}</button>`;
+    });
+    
+    return html;
+}
+
+window.openArticleLink = function(articleId) {
+    // If we have collectedArticles loaded in memory
+    const article = typeof collectedArticles !== 'undefined' ? collectedArticles.find(a => 
+        (a.article_id && a.article_id.startsWith(articleId)) || 
+        (a.url && a.url.includes(articleId))
+    ) : null;
+    
+    if (article && (article.real_url || article.url)) {
+        window.open(article.real_url || article.url, '_blank');
+    } else {
+        alert("ID de Artículo referenciado: " + articleId + "\\n(Búscalo en la tabla de resultados)");
+    }
+}
+
+async function sendChatMessage() {
+    if (isChatStreaming) return;
+    
+    const inputEl = document.getElementById('chat-input');
+    const text = inputEl.value.trim();
+    if (!text) return;
+    
+    // UI updates
+    inputEl.value = '';
+    inputEl.style.height = 'auto'; // reset resize
+    appendChatMessage('user', text);
+    const botMsgDiv = appendChatMessage('bot', '<span class="animate-pulse text-on-surface-variant">Analizando dataset...</span>');
+    const botContentDiv = botMsgDiv.querySelector('.chat-markdown');
+    
+    isChatStreaming = true;
+    document.getElementById('chat-send-btn').disabled = true;
+    
+    // Scoped execution logic
+    let execId = null;
+    if (typeof window.currentDiscoveryExecutionId !== 'undefined' && window.currentDiscoveryExecutionId) {
+        execId = window.currentDiscoveryExecutionId;
+    }
+    
+    try {
+        const response = await fetch('/api/chat/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, execution_id: execId })
+        });
+        
+        if (!response.ok) {
+            botContentDiv.innerHTML = `<span class="text-red-500">Error HTTP ${response.status}</span>`;
+            isChatStreaming = false;
+            document.getElementById('chat-send-btn').disabled = false;
+            return;
+        }
+        
+        botContentDiv.innerHTML = '';
+        let fullResponse = '';
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\\n');
+            
+            for (let line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.substring(6).replace(/\\\\n/g, '\\n');
+                    
+                    if (data.trim() === '[DONE]') {
+                        // Finished
+                    } else if (data.trim().startsWith('[ERROR]')) {
+                        fullResponse += `<br><span class="text-red-500">${escapeHtml(data)}</span>`;
+                    } else if (data.trim().startsWith('[QUOTA]') || data.trim().startsWith('[RATE_LIMITED]')) {
+                        fullResponse += `<br><span class="text-orange-600 font-medium">${escapeHtml(data)}</span>`;
+                    } else {
+                        fullResponse += data;
+                    }
+                    botContentDiv.innerHTML = parseChatMarkdown(fullResponse);
+                    
+                    const container = document.getElementById('chat-messages');
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        }
+    } catch (err) {
+        botContentDiv.innerHTML = `<span class="text-red-500">Error de red: ${err}</span>`;
+    } finally {
+        isChatStreaming = false;
+        document.getElementById('chat-send-btn').disabled = false;
+    }
+}
+
+// Attach Chat Events on Load
+document.addEventListener('DOMContentLoaded', () => {
+    const inputEl = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
+    const clearBtn = document.getElementById('chat-clear-btn');
+    
+    if (sendBtn) sendBtn.addEventListener('click', sendChatMessage);
+    
+    if (inputEl) {
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        
+        // Auto-resize textarea
+        inputEl.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight < 128 ? this.scrollHeight : 128) + 'px';
+        });
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = \`
+                <div class="flex items-start gap-2 max-w-[85%]">
+                  <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
+                    <span class="material-symbols-outlined text-sm">smart_toy</span>
+                  </div>
+                  <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm">
+                    Chat limpiado. ¿En qué más te ayudo?
+                  </div>
+                </div>
+            \`;
+        });
+    }
+});

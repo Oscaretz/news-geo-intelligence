@@ -551,6 +551,55 @@ def list_geojson_countries():
     return jsonify(get_available_countries())
 
 
+
+# ── Analytic Chatbot SSE Endpoint ─────────────────────────────────────────────
+@app.route('/api/chat/stream', methods=['POST'])
+def chat_stream():
+    """
+    SSE endpoint for the analytic chatbot.
+    Expects JSON: { "message": "...", "execution_id": "<optional>" }
+    Returns: text/event-stream with tokens, [DONE], or [ERROR]/[QUOTA]/[RATE_LIMITED].
+    """
+    from chatbot import stream_chat_response
+
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    execution_id = data.get("execution_id") or None
+
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    # Resolve client IP (respects X-Forwarded-For behind proxies)
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
+
+    def generate():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            async def run():
+                async for chunk in stream_chat_response(message, execution_id=execution_id, ip=ip):
+                    yield chunk
+            gen = run()
+            while True:
+                try:
+                    chunk = loop.run_until_complete(gen.__anext__())
+                    yield chunk
+                except StopAsyncIteration:
+                    break
+        finally:
+            loop.close()
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 if __name__ == '__main__':
     try:
         from dotenv import load_dotenv
