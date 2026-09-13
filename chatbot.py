@@ -310,13 +310,13 @@ async def _qual_context(question, execution_id):
         if articles:
             lines.append("Extractos de artículos relevantes encontrados:")
             for a in articles:
-                        pass
-                lines.append(
-                    f"  [Article ID: {a['article_id'][:8]}] '{a['title']}'"
-                    f" — {a['source']}, {a['date']}{geo}"
-                )
+                lines.append(f"[Article ID: {a['article_id']}]")
+                lines.append(f"Título: {a['title']}")
+                lines.append(f"Fuente: {a['source']} | Fecha: {a['date']} | Ubicaciones: {a['geodata']}\n")
         else:
             lines.append("No se encontraron articulos relevantes para la consulta.")
+    finally:
+        await conn.close()
 
     return "\n".join(lines)
 
