@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 from static.py.job_progress_store import update_progress
 from static.py.geojson_cache import get_map_config, get_geojson, get_valid_regions, preload_all
 import os
@@ -256,8 +258,9 @@ class SiteScraperAgent:
 
 class NLPAgent:
     def __init__(self):
-        self.ollama_url = "http://host.docker.internal:11434/api/generate"
-        self.model_name = "llama3.1"
+        default_ollama = "http://host.docker.internal:11434/api/generate" if os.path.exists("/.dockerenv") else "http://localhost:11434/api/generate"
+        self.ollama_url = os.environ.get("OLLAMA_URL", default_ollama)
+        self.model_name = os.environ.get("OLLAMA_MODEL", "llama3.1")
         self.compressor = None
         self._init_compressor()
 
@@ -328,11 +331,22 @@ class NLPAgent:
 
         try:
             payload = {"model": self.model_name, "prompt": prompt, "stream": False, "format": "json", "options": {"temperature": 0.0, "num_predict": 150}}
-            if session:
-                response = await session.post(self.ollama_url, json=payload, timeout=120)
-            else:
-                async with AsyncSession() as local_session:
-                    response = await local_session.post(self.ollama_url, json=payload, timeout=120)
+            try:
+                if session:
+                    response = await session.post(self.ollama_url, json=payload, timeout=120)
+                else:
+                    async with AsyncSession() as local_session:
+                        response = await local_session.post(self.ollama_url, json=payload, timeout=120)
+            except Exception as conn_err:
+                if "host.docker.internal" in self.ollama_url:
+                    self.ollama_url = self.ollama_url.replace("host.docker.internal", "localhost")
+                    if session:
+                        response = await session.post(self.ollama_url, json=payload, timeout=120)
+                    else:
+                        async with AsyncSession() as local_session:
+                            response = await local_session.post(self.ollama_url, json=payload, timeout=120)
+                else:
+                    raise conn_err
             if response.status_code == 200:
                 raw_response = response.json().get('response', '').strip()
                 clean_json_str = raw_response.replace("```json", "").replace("```", "").strip()
@@ -470,12 +484,12 @@ class OrchestratorAgent:
 
     async def init_history_db(self):
         try:
-            db_url = os.environ.get('DATABASE_URL')
+            db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
             try:
                 self.history_db = await asyncpg.create_pool(db_url)
             except Exception as pool_err:
-                # Si falló resolviendo 'postgres' en entorno local (fuera del contenedor)
-                if '@postgres:' in db_url:
+                # Fallback to localhost:5433 if postgres container hostname cannot be resolved on host
+                if db_url and '@postgres:' in db_url:
                     db_url = db_url.replace('@postgres:5432', '@localhost:5433')
                     self.history_db = await asyncpg.create_pool(db_url)
                 else:
