@@ -45,7 +45,7 @@
 <div class="relative flex-1 max-w-2xl mx-lg" id="searchBarContainer">
 <div id="searchBarWrapper" class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 custom-shadow border border-white/40 focus-within:ring-2 focus-within:ring-primary-container/50 focus-within:border-primary-container transition-all">
 <button class="material-symbols-outlined text-on-surface-variant mr-2 select-none hover:text-primary transition-colors" data-icon="search" onclick="fetchDiscovery()" type="button">search</button>
-<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." type="text"/>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." data-i18n="searchPlaceholder" type="text"/>
 <button class="flex items-center justify-center p-1 hover:bg-surface-container-high rounded-full transition-colors ml-2" id="searchFilterBtn">
 <span class="material-symbols-outlined text-on-surface-variant" data-icon="arrow_drop_down">arrow_drop_down</span>
 </button>
@@ -97,18 +97,16 @@
 </div>
 </div>
 <div class="col-span-2 flex justify-end gap-2 mt-2">
-<button class="px-4 py-2 text-primary font-medium hover:bg-primary-container/10 rounded-full transition-colors text-body-md" id="closeFilterBtn">Cancel</button>
-<button class="px-4 py-2 bg-primary-container text-on-primary font-medium rounded-full hover:bg-primary transition-colors text-body-md custom-shadow" id="applyFiltersBtn" onclick="fetchDiscovery()">Apply Filters</button>
+<button class="px-4 py-2 text-primary font-medium hover:bg-primary-container/10 rounded-full transition-colors text-body-md" id="closeFilterBtn" data-i18n="cancel">Cancel</button>
+<button class="px-4 py-2 bg-primary-container text-on-primary font-medium rounded-full hover:bg-primary transition-colors text-body-md custom-shadow" id="applyFiltersBtn" onclick="fetchDiscovery()" data-i18n="applyFilters">Apply Filters</button>
 </div>
 </div>
 </div>
 </div>
 <div class="flex items-center gap-2" id="actionButtons">
-<button id="exportExcelBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="exportAll()"><span class="material-symbols-outlined">output</span> Export</button>
-<button id="mapearBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="startStreamMapping()"><span class="material-symbols-outlined">map</span> Extraer Ubicaciones</button>
-<button class="p-2 hover:bg-surface-container-low transition-colors duration-200 rounded-full text-on-surface-variant">
-<span class="material-symbols-outlined" data-icon="settings">settings</span>
-</button>
+<button id="exportExcelBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="exportAll()"><span class="material-symbols-outlined">output</span> <span data-i18n="export">Export</span></button>
+<button id="mapearBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="startStreamMapping()"><span class="material-symbols-outlined">map</span> <span data-i18n="extractLocations">Extraer Ubicaciones</span></button>
+
 </div>
 </div>
 </header>
@@ -134,22 +132,22 @@
 <nav class="bg-surface border-b border-outline-variant/30">
 <div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
 <button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2 transition-all" onclick="switchTab('main')">
-<span class="text-body-md font-body-md">Main Search</span>
+<span class="text-body-md font-body-md" data-i18n="mainSearch">Main Search</span>
 </button>
 <button id="tab-analytics" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
-<span class="text-body-md font-body-md">Analytics &amp; Maps</span>
+<span class="text-body-md font-body-md" data-i18n="analyticsMaps">Analytics &amp; Maps</span>
 </button>
 <button id="tab-history" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('history')">
-<span class="text-body-md font-body-md">History</span>
+<span class="text-body-md font-body-md" data-i18n="history">History</span>
 </button>
 <button id="tab-jobs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('jobs')">
-<span class="text-body-md font-body-md">Queue / Jobs</span>
+<span class="text-body-md font-body-md" data-i18n="jobs">Queue / Jobs</span>
 </button>
 <button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
-<span class="text-body-md font-body-md">Technical Documentation</span>
+<span class="text-body-md font-body-md" data-i18n="techDocs">Technical Documentation</span>
 </button>
 <button id="tab-manual" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
-<span class="text-body-md font-body-md">User Manual</span>
+<span class="text-body-md font-body-md" data-i18n="userManual">User Manual</span>
 </button>
 </div>
 </nav>
@@ -160,8 +158,8 @@
     <div id="view-main" class="flex flex-col gap-md w-full">
         <!-- Full-width Header -->
         <div class="mb-2">
-            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1">News Summary</h1>
-            <p class="text-body-md text-on-surface-variant" id="news-summary-subtitle">No dates available</p>
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="newsSummary">News Summary</h1>
+            <p class="text-body-md text-on-surface-variant" id="news-summary-subtitle" data-i18n="noDates">No dates available</p>
         </div>
 
         <!-- 2-Column Grid -->
@@ -170,7 +168,7 @@
             <div class="lg:col-span-8 flex flex-col gap-lg w-full min-h-[400px]">
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 w-full h-full">
                     <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2 mb-md">
-                        Recent News <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+                        <span data-i18n="recentNews">Recent News</span> <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
                     </h2>
                     <div id="articlesFeed" class="flex flex-col gap-md w-full">
                         <!-- Top 2 cards render here -->
@@ -182,7 +180,7 @@
                 <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col w-full" style="max-height: 80vh;">
                     <div class="p-md border-b border-outline-variant/20 flex items-center justify-between flex-shrink-0">
                         <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2">
-                            Full Feed
+                            <span data-i18n="fullFeed">Full Feed</span>
                         </h2>
                         <div class="flex items-center gap-2 relative">
                             <span id="feedPaginationInfo" class="text-label-md text-on-surface-variant"></span>
@@ -196,12 +194,12 @@
                             <div id="feedFilterPopover" class="hidden absolute right-0 top-full mt-2 w-72 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg z-50 p-md">
                                 <!-- Date Filter -->
                                 <div class="mb-3">
-                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">Date</p>
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="dateLabel">Date</p>
                                     <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." readonly>
                                 </div>
                                 <!-- Source Filter -->
                                 <div class="mb-3">
-                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">Source</p>
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="sourceLabel">Source</p>
                                     <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
                                         <input type="checkbox" id="feedSourceSelectAll" onchange="feedSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
                                         <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
@@ -211,7 +209,7 @@
                                 <!-- State Filter — hidden until states exist -->
                                 <div id="feedStateFilterSection" class="hidden">
                                     <div class="border-t border-outline-variant/10 pt-3 mb-3">
-                                        <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2">State</p>
+                                        <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="stateLabel">State</p>
                                         <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
                                             <input type="checkbox" id="feedStateSelectAll" onchange="feedSelectAll('State', this.checked)" class="w-3.5 h-3.5">
                                             <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
@@ -220,8 +218,8 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant/10">
-                                    <button onclick="clearFeedFilters()" class="px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors">Clear</button>
-                                    <button onclick="toggleFeedFilterPopover()" class="px-3 py-1 text-xs bg-primary-container text-on-primary rounded-full hover:bg-primary transition-colors">Done</button>
+                                    <button onclick="clearFeedFilters()" class="px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors" data-i18n="clearBtn">Clear</button>
+                                    <button onclick="toggleFeedFilterPopover()" class="px-3 py-1 text-xs bg-primary-container text-on-primary rounded-full hover:bg-primary transition-colors" data-i18n="doneBtn">Done</button>
                                 </div>
                             </div>
                         </div>
@@ -255,7 +253,7 @@
             <!-- States multi-select popover -->
             <div class="relative" id="analyticsStateDropdownWrap">
                 <button onclick="toggleAnalyticsDropdown('State')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsStateTrigger">
-                    <span id="analyticsStateTriggerLabel">All States</span>
+                    <span id="analyticsStateTriggerLabel" data-i18n="allStates">All States</span>
                     <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
                 </button>
                 <div id="analyticsStateDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
@@ -270,7 +268,7 @@
             <!-- Sources multi-select popover -->
             <div class="relative" id="analyticsSourceDropdownWrap">
                 <button onclick="toggleAnalyticsDropdown('Source')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsSourceTrigger">
-                    <span id="analyticsSourceTriggerLabel">All Sources</span>
+                    <span id="analyticsSourceTriggerLabel" data-i18n="allSources">All Sources</span>
                     <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
                 </button>
                 <div id="analyticsSourceDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
@@ -330,7 +328,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
             <div id="sourceCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
                 <div class="flex items-center justify-between mb-2 flex-shrink-0">
-                    <h3 class="text-sm font-semibold">Top Sources</h3>
+                    <h3 class="text-sm font-semibold" data-i18n="topSources">Top Sources</h3>
                     <button onclick="downloadChartCard('sourceCard', 'chart_sources.png')" title="Download Sources Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -343,7 +341,7 @@
             </div>
             <div id="statesCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
                 <div class="flex items-center justify-between mb-2 flex-shrink-0">
-                    <h3 class="text-sm font-semibold">Top States</h3>
+                    <h3 class="text-sm font-semibold" data-i18n="topStates">Top States</h3>
                     <button onclick="downloadChartCard('statesCard', 'chart_states.png')" title="Download States Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -356,7 +354,7 @@
             </div>
             <div id="timelineCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
                 <div class="flex items-center justify-between mb-2 flex-shrink-0">
-                    <h3 class="text-sm font-semibold">Timeline</h3>
+                    <h3 class="text-sm font-semibold" data-i18n="timeline">Timeline</h3>
                     <button onclick="downloadChartCard('timelineCard', 'chart_timeline.png')" title="Download Timeline Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -383,14 +381,14 @@
     <div id="view-jobs" class="hidden flex flex-col gap-lg w-full">
         <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
             <div class="flex justify-between items-center mb-md flex-wrap gap-3">
-                <h2 class="text-title-md font-title-md text-primary-container">Background Jobs Queue</h2>
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="bgJobsQueue">Background Jobs Queue</h2>
                 <div class="flex items-center gap-2">
                     <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
-                        <option value="ALL">All Jobs</option>
+                        <option value="ALL" data-i18n="allJobs">All Jobs</option>
                         <option value="ACTIVE">Active (QUEUED / ANALYZING)</option>
                         <option value="READY">Ready for LLM (SCRAPED)</option>
-                        <option value="COMPLETED">Completed</option>
+                        <option value="COMPLETED" data-i18n="completed">Completed</option>
                     </select>
                     <button onclick="fetchJobs()" class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md hover:bg-surface-container-high transition-colors text-on-surface">
                         <span class="material-symbols-outlined text-sm">refresh</span> Refresh
@@ -401,20 +399,20 @@
                 <table class="w-full text-left border-collapse" id="jobsTable">
                     <thead>
                         <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
-                            <th class="py-3 px-4 font-medium">Job ID</th>
+                            <th class="py-3 px-4 font-medium" data-i18n="jobId">Job ID</th>
                             <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('query')">
-                                <div class="flex items-center gap-1">Search Term <span id="sort-icon-jobs-query" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-jobs-query" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>
                             <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('status')">
-                                <div class="flex items-center gap-1">Status <span id="sort-icon-jobs-status" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="status">Status</span> <span id="sort-icon-jobs-status" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>
                             <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('end_time')">
-                                <div class="flex items-center gap-1">Last Updated <span id="sort-icon-jobs-end_time" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="lastUpdated">Last Updated</span> <span id="sort-icon-jobs-end_time" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
                             </th>
                             <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('elapsed')">
-                                <div class="flex items-center gap-1">Elapsed Time <span id="sort-icon-jobs-elapsed" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="elapsedTime">Elapsed Time</span> <span id="sort-icon-jobs-elapsed" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>
-                            <th class="py-3 px-4 font-medium">Actions</th>
+                            <th class="py-3 px-4 font-medium" data-i18n="actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="jobsTableBody" class="text-body-md text-on-surface">
@@ -425,13 +423,13 @@
             <!-- Jobs Pagination Footer -->
             <div id="jobsPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
                 <div class="flex items-center gap-2">
-                    <span>Show</span>
+                    <span data-i18n="show">Show</span>
                     <select id="jobsPageSizeSelect" onchange="onJobsPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
                         <option value="10" selected>10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
                     </select>
-                    <span>entries per page</span>
+                    <span data-i18n="entriesPerPage">entries per page</span>
                 </div>
                 <div id="jobsPageInfo" class="font-medium text-xs sm:text-sm">
                     Showing 0-0 of 0 entries
@@ -455,7 +453,7 @@
     <div id="view-history" class="hidden flex flex-col gap-lg">
         <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
             <div class="flex justify-between items-center mb-md flex-wrap gap-3">
-                <h2 class="text-title-md font-title-md text-primary-container">Execution History</h2>
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="executionHistory">Execution History</h2>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button id="mapSelectedBtn" onclick="mapSelectedHistory()" class="hidden px-3 py-1.5 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm">
                         <span class="material-symbols-outlined text-[18px]">map</span> <span id="mapSelectedCount">Map Selected (0)</span>
@@ -463,14 +461,14 @@
                     <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     
                     <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
-                        <option value="ALL">All Statuses</option>
-                        <option value="ANALYZED">Analyzed</option>
-                        <option value="RAW">Raw Articles</option>
+                        <option value="ALL" data-i18n="allStatuses">All Statuses</option>
+                        <option value="ANALYZED" data-i18n="analyzed">Analyzed</option>
+                        <option value="RAW" data-i18n="rawArticles">Raw Articles</option>
                     </select>
                     
                     <label class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md text-body-md text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-colors select-none">
                         <input type="checkbox" id="historyHideZeroCheck" onchange="onHistoryFilterChange()" class="accent-primary w-4 h-4">
-                        Hide 0 articles
+                        <span data-i18n="hide0Articles">Hide 0 articles</span>
                     </label>
 
                     <button onclick="toggleHistoryColumns()" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-md text-on-surface-variant transition-colors flex items-center gap-1">
@@ -480,11 +478,11 @@
             </div>
             
             <div id="historyColumnToggle" class="hidden mb-4 p-3 bg-surface-container rounded-md flex flex-wrap gap-4 text-sm text-on-surface-variant">
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> Search Term</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> Filters</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> Scraped On</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> Articles</label>
-                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(5)" class="accent-primary"> Actions</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> <span data-i18n="searchTerm">Search Term</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> <span data-i18n="filters">Filters</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> <span data-i18n="scrapedOn">Scraped On</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> <span data-i18n="articles">Articles</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(5)" class="accent-primary"> <span data-i18n="actions">Actions</span></label>
             </div>
 
             <div class="overflow-x-auto w-full">
@@ -495,16 +493,16 @@
                                 <input type="checkbox" id="historyMasterCheckbox" onchange="toggleAllHistorySelection()" class="accent-primary w-4 h-4 cursor-pointer">
                             </th>
                             <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('search_term')">
-                                <div class="flex items-center gap-1">Search Term <span id="sort-icon-history-search_term" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-history-search_term" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>
-                            <th class="py-2 px-3">Filters</th>
+                            <th class="py-2 px-3" data-i18n="filters">Filters</th>
                             <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('scraped_at')">
-                                <div class="flex items-center gap-1">Scraped On <span id="sort-icon-history-scraped_at" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                                <div class="flex items-center gap-1"><span data-i18n="scrapedOn">Scraped On</span> <span id="sort-icon-history-scraped_at" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
                             </th>
                             <th class="py-2 px-3 text-center cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('total_articles')">
-                                <div class="flex items-center justify-center gap-1">Total Articles <span id="sort-icon-history-total_articles" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                                <div class="flex items-center justify-center gap-1"><span data-i18n="totalArticles">Total Articles</span> <span id="sort-icon-history-total_articles" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
                             </th>
-                            <th class="py-2 px-3 text-right">Actions</th>
+                            <th class="py-2 px-3 text-right" data-i18n="actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody" class="text-body-md text-on-surface">
@@ -515,13 +513,13 @@
             <!-- History Pagination Footer -->
             <div id="historyPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
                 <div class="flex items-center gap-2">
-                    <span>Show</span>
+                    <span data-i18n="show">Show</span>
                     <select id="historyPageSizeSelect" onchange="onHistoryPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
                         <option value="10" selected>10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
                     </select>
-                    <span>entries per page</span>
+                    <span data-i18n="entriesPerPage">entries per page</span>
                 </div>
                 <div id="historyPageInfo" class="font-medium text-xs sm:text-sm">
                     Showing 0-0 of 0 entries
@@ -541,6 +539,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <!-- Chatbot FAB -->
@@ -557,8 +556,8 @@
         <span class="material-symbols-outlined">smart_toy</span>
       </div>
       <div>
-        <h2 class="font-semibold text-on-surface">Data Analyst AI</h2>
-        <p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Online</p>
+        <h2 class="font-semibold text-on-surface" data-i18n="dataAnalystAi">Data Analyst AI</h2>
+        <p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> <span data-i18n="online">Online</span></p>
       </div>
     </div>
     <button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-2 rounded-full transition-colors" onclick="toggleChatbot()">
@@ -581,7 +580,7 @@
   <!-- Input Area -->
   <div class="p-4 border-t border-outline-variant bg-surface">
     <div class="relative flex items-end bg-white border border-outline-variant rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary-container/20 focus-within:border-primary-container transition-all">
-      <textarea id="chat-input" rows="1" class="w-full bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-sm text-on-surface placeholder:text-on-surface-variant/50 max-h-32" placeholder="Haz una pregunta sobre los datos..."></textarea>
+      <textarea id="chat-input" rows="1" class="w-full bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-sm text-on-surface placeholder:text-on-surface-variant/50 max-h-32" placeholder="Haz una pregunta sobre los datos..." data-i18n="chatPlaceholder"></textarea>
       <button id="chat-send-btn" class="absolute right-2 bottom-2 p-1.5 text-primary-container hover:bg-primary-container/10 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
         <span class="material-symbols-outlined text-xl">send</span>
       </button>
@@ -591,7 +590,7 @@
         <span class="material-symbols-outlined text-[12px]">security</span>
         <span id="chatbot-model-badge">{{ chatbot_model }}</span> - Dataset Context Only
       </span>
-      <button id="chat-clear-btn" class="text-[10px] text-on-surface-variant hover:text-red-500 transition-colors">Limpiar Chat</button>
+      <button id="chat-clear-btn" class="text-[10px] text-on-surface-variant hover:text-red-500 transition-colors" data-i18n="clearChat">Limpiar Chat</button>
     </div>
   </div>
 </div>

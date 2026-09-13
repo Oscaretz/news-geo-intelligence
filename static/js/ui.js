@@ -19,11 +19,11 @@ function formatTemporal(isoString) {
     
     if (diffHrs < 24) {
         const diffMins = Math.floor(diffMs / (1000 * 60));
-        if (diffMins < 1) displayStr = "Just now";
-        else if (diffMins < 60) displayStr = `${diffMins} mins ago`;
+        if (diffMins < 1) displayStr = typeof i18n !== "undefined" && i18n.dictionary["justNow"] ? i18n.dictionary["justNow"] : "Just now";
+        else if (diffMins < 60) displayStr = `${diffMins} ` + (typeof i18n !== "undefined" && i18n.dictionary["minsAgo"] ? i18n.dictionary["minsAgo"] : "mins ago");
         else {
             const hrs = Math.floor(diffHrs);
-            displayStr = `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+            displayStr = hrs > 1 ? `${hrs} ` + (typeof i18n !== 'undefined' && i18n.dictionary['hoursAgo'] ? i18n.dictionary['hoursAgo'] : 'hours ago') : (typeof i18n !== 'undefined' && i18n.dictionary['hourAgo'] ? i18n.dictionary['hourAgo'] : 'hour ago');
         }
     } else {
         const options = { day: '2-digit', month: 'short' };
@@ -257,7 +257,7 @@ function resetUI(mode) {
     const feedInfo = document.getElementById('feedPaginationInfo');
     if (feedInfo) feedInfo.textContent = '';
     const subtitleEl = document.getElementById('news-summary-subtitle');
-    if (subtitleEl) subtitleEl.textContent = 'No dates available';
+    if (subtitleEl) subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
 
     // Hide export & map buttons until data arrives
     const exportBtn = document.getElementById('exportExcelBtn');
@@ -334,7 +334,7 @@ function renderTopStories(articles = null, emptyMessage = null) {
             placeholder.className = 'flex flex-col items-center justify-center p-8 text-center text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl bg-surface-container-lowest';
             placeholder.innerHTML = `
                 <span class="material-symbols-outlined text-4xl mb-2 text-on-surface-variant/40">search_off</span>
-                <p class="text-body-md font-medium text-on-surface mb-1">No articles found</p>
+                <p class="text-body-md font-medium text-on-surface mb-1" data-i18n="noArticlesFound">No articles found</p>
                 <p class="text-xs text-on-surface-variant">${emptyMessage}</p>
             `;
         } else {
@@ -342,14 +342,14 @@ function renderTopStories(articles = null, emptyMessage = null) {
             placeholder.innerHTML = `
                 <div class="overflow-hidden rounded-xl mb-3 h-72 bg-surface-container flex flex-col items-center justify-center text-on-surface-variant/40 border border-dashed border-outline-variant/40">
                     <span class="material-symbols-outlined text-5xl mb-2">newspaper</span>
-                    <span class="text-xs font-medium uppercase tracking-wider">News Preview</span>
+                    <span class="text-xs font-medium uppercase tracking-wider" data-i18n="newsPreview">News Preview</span>
                 </div>
-                <h3 class="text-title-md font-title-md text-on-surface mb-1 leading-snug">Waiting for search...</h3>
+                <h3 class="text-title-md font-title-md text-on-surface mb-1 leading-snug" data-i18n="waitingForSearch">Waiting for search...</h3>
                 <p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time.</p>
                 <div class="flex items-center gap-2 text-label-md text-on-surface-variant">
                     <span class="px-2 py-0.5 rounded bg-surface-container text-xs font-medium text-on-surface-variant">AI News Explorer</span>
                     <span>·</span>
-                    <span>Today</span>
+                    <span data-i18n="today">Today</span>
                 </div>
             `;
         }
@@ -575,8 +575,8 @@ function renderFullFeed() {
         list.innerHTML = `
             <div class="p-6 text-center text-on-surface-variant flex flex-col items-center justify-center">
                 <span class="material-symbols-outlined text-4xl mb-2 text-on-surface-variant/40">search_off</span>
-                <p class="text-body-md font-medium text-on-surface mb-1">No articles found</p>
-                <p class="text-xs text-on-surface-variant">No articles found matching your criteria.</p>
+                <p class="text-body-md font-medium text-on-surface mb-1" data-i18n="noArticlesFound">No articles found</p>
+                <p class="text-xs text-on-surface-variant" data-i18n="noArticlesCriteria">No articles found matching your criteria.</p>
             </div>`;
         if (infoEl) infoEl.textContent = '0 of 0';
         const prevBtn = document.getElementById('feedPrevBtn');
@@ -627,7 +627,7 @@ function updateNewsSummarySubtitle(articles = null) {
 
     const data = articles !== null ? articles : getFilteredFeed();
     if (!data || data.length === 0) {
-        subtitleEl.textContent = 'No dates available';
+        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
         return;
     }
 
@@ -642,7 +642,7 @@ function updateNewsSummarySubtitle(articles = null) {
     });
 
     if (validDates.length === 0) {
-        subtitleEl.textContent = 'No dates available';
+        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
         return;
     }
 
@@ -1303,9 +1303,9 @@ function renderPaginationControls(buttonsContainerId, infoContainerId, totalItem
     
     // Previous Button
     if (currentPage <= 1) {
-        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium">Prev</button>`;
+        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium" data-i18n="prevBtn">Prev</button>`;
     } else {
-        html += `<button onclick="${setPageFnName}(${currentPage - 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium">Prev</button>`;
+        html += `<button onclick="${setPageFnName}(${currentPage - 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium" data-i18n="prevBtn">Prev</button>`;
     }
     
     // Page Number Buttons
@@ -1336,9 +1336,9 @@ function renderPaginationControls(buttonsContainerId, infoContainerId, totalItem
     
     // Next Button
     if (currentPage >= totalPages) {
-        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium">Next</button>`;
+        html += `<button disabled class="px-2.5 py-1 rounded border border-outline-variant/30 text-on-surface-variant/40 cursor-not-allowed text-xs font-medium" data-i18n="nextBtn">Next</button>`;
     } else {
-        html += `<button onclick="${setPageFnName}(${currentPage + 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium">Next</button>`;
+        html += `<button onclick="${setPageFnName}(${currentPage + 1})" class="px-2.5 py-1 rounded border border-outline-variant/30 hover:bg-surface-container-high transition-colors text-on-surface text-xs font-medium" data-i18n="nextBtn">Next</button>`;
     }
     
     buttonsEl.innerHTML = html;
@@ -1991,7 +1991,7 @@ window.viewExecution = async function(execution_id) {
         updateStatus('Loaded ' + collectedArticles.length + ' articles from history (complete).');
     } catch (e) {
         console.error(e);
-        updateStatus('❌ Failed to load execution');
+        updateStatus('❌ ' + (typeof i18n !== 'undefined' && i18n.dictionary['failedToLoad'] ? i18n.dictionary['failedToLoad'] : 'Failed to load execution'));
     }
 };
 
@@ -2559,7 +2559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
                   </div>
                   <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm">
-                    Chat limpiado. ¿En qué más te ayudo?
+                    <span data-i18n="chatPlaceholder">Chat limpiado. ¿En qué más te ayudo?</span>
                   </div>
                 </div>
             `;
