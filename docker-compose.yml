@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     environment:
-      - FLASK_DEBUG=1
+      - FLASK_DEBUG=${FLASK_DEBUG:-0}
     depends_on:
       - postgres
 

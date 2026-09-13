@@ -41,6 +41,69 @@ logging.getLogger('werkzeug').addFilter(NoJobsFilter())
 
 app = Flask(__name__)
 
+import time
+import re
+from collections import defaultdict
+from flask import jsonify, request, g
+
+# ── Security: Generic Error Handler ──────────────────────────────────────────
+@app.errorhandler(500)
+def internal_server_error(e):
+    logging.getLogger(__name__).error(f"Internal Server Error: {e}")
+    return jsonify({"error": "Internal server error occurred."}), 500
+
+# ── Security: Security Headers & CORS ────────────────────────────────────────
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:;"
+    
+    # Basic CORS for local and production origins
+    allowed = os.environ.get('CORS_ALLOWED_ORIGINS', '*')
+    if allowed != '*':
+        origin = request.headers.get('Origin')
+        if origin and origin in allowed.split(','):
+            response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
+
+# ── Security: Lightweight Rate Limiter ───────────────────────────────────────
+_rate_limits = defaultdict(list)
+
+def rate_limit(limit=10, window=60):
+    def decorator(f):
+        def wrapped(*args, **kwargs):
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
+            now = time.time()
+            _rate_limits[ip] = [ts for ts in _rate_limits[ip] if now - ts < window]
+            if len(_rate_limits[ip]) >= limit:
+                return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+            _rate_limits[ip].append(now)
+            return f(*args, **kwargs)
+        wrapped.__name__ = f.__name__
+        return wrapped
+    return decorator
+
+# ── Security: Input Sanitization ─────────────────────────────────────────────
+def sanitize_payload(payload):
+    """Recursively strip HTML and script tags from string inputs."""
+    if isinstance(payload, dict):
+        return {k: sanitize_payload(v) for k, v in payload.items()}
+    elif isinstance(payload, list):
+        return [sanitize_payload(v) for v in payload]
+    elif isinstance(payload, str):
+        # Strip simple tags
+        clean = re.sub(r'<[^>]+>', '', payload)
+        # Prevent javascript: URIs
+        clean = re.sub(r'javascript:', '', clean, flags=re.IGNORECASE)
+        return clean.strip()
+    return payload
+
 # ── Payload compression (Gzip / Brotli) ────────────────────────────────────
 try:
     from flask_compress import Compress
@@ -130,15 +193,17 @@ def available_maps():
 
 #  (ETAPA 1): Botón "Buscar Noticias Rápidas"
 @app.route('/api/discovery', methods=['GET'])
+@rate_limit(limit=15, window=60)
 def api_discovery():
+    sanitized_args = sanitize_payload(request.args.to_dict())
     search_params = {
-        'query': request.args.get('query', ''),
-        'nqueries': request.args.get('nqueries', '15'),
-        'country': request.args.get('country', 'mx'),
-        'qrangedate': request.args.get('qrangedate', ''),
-        'qexception': request.args.get('qexception', ''),
-        'qoption': request.args.get('qoption', ''),
-        'qsite': request.args.get('qsite', '')
+        'query': sanitized_args.get('query', ''),
+        'nqueries': sanitized_args.get('nqueries', '15'),
+        'country': sanitized_args.get('country', 'mx'),
+        'qrangedate': sanitized_args.get('qrangedate', ''),
+        'qexception': sanitized_args.get('qexception', ''),
+        'qoption': sanitized_args.get('qoption', ''),
+        'qsite': sanitized_args.get('qsite', '')
     }
     
     import uuid
@@ -568,6 +633,7 @@ def chat_info():
 
 
 @app.route('/api/chat/stream', methods=['POST'])
+@rate_limit(limit=10, window=60)
 def chat_stream():
     """
     SSE endpoint for the analytic chatbot.
@@ -576,7 +642,8 @@ def chat_stream():
     """
     from chatbot import stream_chat_response
 
-    data = request.get_json(silent=True) or {}
+    raw_data = request.get_json(silent=True) or {}
+    data = sanitize_payload(raw_data)
     message = (data.get("message") or "").strip()
     execution_id = data.get("execution_id") or None
 
@@ -620,4 +687,5 @@ if __name__ == '__main__':
         load_dotenv()
     except ImportError:
         pass
-    app.run(host='0.0.0.0', debug=True, port=5000)
+    is_debug = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+    app.run(host='0.0.0.0', debug=is_debug, port=5000)
