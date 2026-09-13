@@ -2,8 +2,8 @@ import sqlite3
 import os
 import platform
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-dagster_home_dir = os.path.join(BASE_DIR, "dagster_home")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dagster_home_dir = os.environ.get("DAGSTER_HOME") or os.path.join(BASE_DIR, "dagster_home")
 DB_PATH = os.path.join(dagster_home_dir, "job_progress.db")
 
 def _get_conn():
