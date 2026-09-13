@@ -2423,6 +2423,7 @@ async function sendChatMessage() {
         
         botContentDiv.innerHTML = '';
         let fullResponse = '';
+        let buffer = '';
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -2431,8 +2432,9 @@ async function sendChatMessage() {
             const { value, done } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // keep incomplete line in buffer
             
             for (let line of lines) {
                 if (line.startsWith('data: ')) {
@@ -2449,11 +2451,22 @@ async function sendChatMessage() {
                     }
                     botContentDiv.innerHTML = parseChatMarkdown(fullResponse);
                     
+                    // scroll to bottom
                     const container = document.getElementById('chat-messages');
                     container.scrollTop = container.scrollHeight;
                 }
             }
         }
+        
+        // flush remaining buffer if it looks like data
+        if (buffer.startsWith('data: ')) {
+            const data = buffer.substring(6).replace(/\\n/g, '\n');
+            if (data.trim() !== '[DONE]' && !data.trim().startsWith('[ERROR]')) {
+                fullResponse += data;
+                botContentDiv.innerHTML = parseChatMarkdown(fullResponse);
+            }
+        }
+        
     } catch (err) {
         botContentDiv.innerHTML = `<span class="text-red-500">Error de red: ${err}</span>`;
     } finally {
