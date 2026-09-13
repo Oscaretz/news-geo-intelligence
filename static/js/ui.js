@@ -2192,7 +2192,7 @@ function renderJobsQueue(jobs) {
             }
             else if (job.status === 'PARTIALLY_ANALYZED') badgeClass = "bg-orange-100 text-orange-800";
             else if (job.status === 'PAUSED_BLOCKED') badgeClass = "bg-yellow-100 text-yellow-800";
-            else if (job.status === 'FAILURE') badgeClass = "bg-red-100 text-red-800";
+            else if (job.status === 'FAILURE' || job.status === 'CANCELLED' || job.status === 'ERROR') badgeClass = "bg-red-100 text-red-800";
             
             statusHtml = `<span class="px-2 py-1 rounded-full text-[12px] font-medium ${badgeClass}">${displayStatus}</span>`;
         }
@@ -2203,8 +2203,8 @@ function renderJobsQueue(jobs) {
             actionsHtml = `<button onclick="analyzeJob('${job.run_id}')" class="px-3 py-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
         } else if (job.status === 'PAUSED_BLOCKED') {
             actionsHtml = `<button onclick="resumeScrapingJob('${job.run_id}')" class="px-3 py-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-md text-label-sm font-medium transition-colors">Resume Scraping</button>`;
-        } else if (isQueued) {
-            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-label-sm font-medium transition-colors">Cancel Queue</button>`;
+        } else if (isQueued || isRunning || job.status === 'STARTING') {
+            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md text-label-sm font-medium transition-colors">Stop Job</button>`;
         }
 
         let tr = document.getElementById(`job-row-${job.run_id}`);

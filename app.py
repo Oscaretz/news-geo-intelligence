@@ -333,7 +333,7 @@ def cancel_job(execution_id):
             orchestrator = OrchestratorAgent()
             await orchestrator.init_history_db()
             async with orchestrator.history_db.acquire() as conn:
-                await conn.execute("UPDATE search_executions SET status = 'SCRAPED' WHERE execution_id = $1 AND status = 'QUEUED_FOR_ANALYSIS'", execution_id)
+                await conn.execute("UPDATE search_executions SET status = 'CANCELLED' WHERE execution_id = $1", execution_id)
         asyncio.run(update_status())
         return jsonify({"success": True})
     except Exception as e:
