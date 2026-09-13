@@ -288,33 +288,15 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.6-flash")
 
 def get_model_display_name() -> str:
     """
-    Returns a sanitized, human-friendly model name for UI presentation.
-    Enforces strict whitelisting to prevent sensitive internal path leakage or XSS.
+    Returns the configured model name directly from settings,
+    stripping the technical 'models/' prefix if present, without hardcoded mappings.
     """
-    raw_model = GEMINI_MODEL
-    if not raw_model or not isinstance(raw_model, str):
-        return "Gemini Flash"
+    raw_model = (GEMINI_MODEL or "").strip()
+    if not raw_model:
+        return "Gemini"
 
-    # Strip provider/path prefix if present (e.g. models/)
-    name = raw_model.strip().split("/")[-1]
-
-    # Whitelist check: strictly allow alphanumeric, hyphens, and dots up to 40 chars
-    if not re.match(r"^[a-zA-Z0-9.\-_]{1,40}$", name):
-        return "Gemini Flash"
-
-    mapping = {
-        "gemini-1.5-flash": "Gemini 1.5 Flash",
-        "gemini-1.5-flash-8b": "Gemini 1.5 Flash-8B",
-        "gemini-1.5-pro": "Gemini 1.5 Pro",
-        "gemini-2.0-flash": "Gemini 2.0 Flash",
-        "gemini-2.5-flash": "Gemini 2.5 Flash",
-        "gemini-3.6-flash": "Gemini 3.6 Flash",
-    }
-    if name.lower() in mapping:
-        return mapping[name.lower()]
-
-    parts = [p.capitalize() for p in name.split("-") if p]
-    return " ".join(parts) if parts else "Gemini Flash"
+    # Strip provider prefix if present (e.g. models/gemini-3.6-flash -> gemini-3.6-flash)
+    return raw_model.split("/")[-1]
 
 
 def _get_client():
