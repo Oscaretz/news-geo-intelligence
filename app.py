@@ -114,7 +114,8 @@ def run_orchestrator_mapping(search_params, q):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    from chatbot import get_model_display_name
+    return render_template('index.html', chatbot_model=get_model_display_name())
 
 @app.route('/api/available-maps', methods=['GET'])
 def available_maps():
@@ -553,6 +554,19 @@ def list_geojson_countries():
 
 
 # ── Analytic Chatbot SSE Endpoint ─────────────────────────────────────────────
+@app.route('/api/chat/info', methods=['GET'])
+def chat_info():
+    """
+    Public metadata endpoint for the chatbot.
+    Returns only safe, sanitized presentation information (no keys, secrets, or internal paths).
+    """
+    from chatbot import get_model_display_name
+    return jsonify({
+        "model_name": get_model_display_name(),
+        "status": "ready"
+    })
+
+
 @app.route('/api/chat/stream', methods=['POST'])
 def chat_stream():
     """

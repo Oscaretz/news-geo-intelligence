@@ -672,7 +672,7 @@
     <div class="flex justify-between items-center mt-2 px-1">
       <span class="text-[10px] text-on-surface-variant flex items-center gap-1">
         <span class="material-symbols-outlined text-[12px]">security</span>
-        Gemini 1.5 Flash - Dataset Context Only
+        <span id="chatbot-model-badge">{{ chatbot_model | default('Gemini Flash') }}</span> - Dataset Context Only
       </span>
       <button id="chat-clear-btn" class="text-[10px] text-on-surface-variant hover:text-red-500 transition-colors">Limpiar Chat</button>
     </div>

@@ -283,6 +283,39 @@ async def build_context(question: str, intent: str, execution_id) -> str:
 _GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 _gemini_client = None
 
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.6-flash")
+
+
+def get_model_display_name() -> str:
+    """
+    Returns a sanitized, human-friendly model name for UI presentation.
+    Enforces strict whitelisting to prevent sensitive internal path leakage or XSS.
+    """
+    raw_model = GEMINI_MODEL
+    if not raw_model or not isinstance(raw_model, str):
+        return "Gemini Flash"
+
+    # Strip provider/path prefix if present (e.g. models/)
+    name = raw_model.strip().split("/")[-1]
+
+    # Whitelist check: strictly allow alphanumeric, hyphens, and dots up to 40 chars
+    if not re.match(r"^[a-zA-Z0-9.\-_]{1,40}$", name):
+        return "Gemini Flash"
+
+    mapping = {
+        "gemini-1.5-flash": "Gemini 1.5 Flash",
+        "gemini-1.5-flash-8b": "Gemini 1.5 Flash-8B",
+        "gemini-1.5-pro": "Gemini 1.5 Pro",
+        "gemini-2.0-flash": "Gemini 2.0 Flash",
+        "gemini-2.5-flash": "Gemini 2.5 Flash",
+        "gemini-3.6-flash": "Gemini 3.6 Flash",
+    }
+    if name.lower() in mapping:
+        return mapping[name.lower()]
+
+    parts = [p.capitalize() for p in name.split("-") if p]
+    return " ".join(parts) if parts else "Gemini Flash"
+
 
 def _get_client():
     global _gemini_client
@@ -335,7 +368,7 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
         )
 
         async for chunk in await client.aio.models.generate_content_stream(
-            model="models/gemini-3.6-flash",
+            model=GEMINI_MODEL,
             contents=user_prompt,
             config=config,
         ):
