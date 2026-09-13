@@ -102,6 +102,17 @@
             40%, 80% { transform: translateX(4px); }
         }
         .animate-shake { animation: shake 0.4s ease-in-out; }
+        
+        .row-readonly {
+            opacity: 0.6;
+            color: #6b7280;
+        }
+        .row-dimmed {
+            opacity: 0.4;
+            filter: grayscale(50%);
+            pointer-events: none;
+            transition: opacity 0.3s ease, filter 0.3s ease;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen text-on-surface font-body-md antialiased">

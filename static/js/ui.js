@@ -1357,35 +1357,75 @@ let historyPage = 1;
 let historyPageSize = 10;
 let selectedHistoryRuns = new Set();
 let multiRunMode = false;
+window.activeSelectionType = null;
 
 window.toggleAllHistorySelection = function() {
     const master = document.getElementById('historyMasterCheckbox');
     const checked = master.checked;
-    const cbs = document.querySelectorAll('.history-row-checkbox:not(:disabled)');
+    const cbs = Array.from(document.querySelectorAll('.history-row-checkbox'));
+    
+    let targetType = window.activeSelectionType;
+    if (checked && !targetType) {
+        const hasAnalyzed = cbs.some(cb => cb.getAttribute('data-type') === 'analyzed');
+        targetType = hasAnalyzed ? 'analyzed' : 'raw';
+    }
+    
     cbs.forEach(cb => {
-        cb.checked = checked;
-        if(checked) selectedHistoryRuns.add(cb.value);
-        else selectedHistoryRuns.delete(cb.value);
+        if (!checked) {
+            cb.checked = false;
+            selectedHistoryRuns.delete(cb.value);
+        } else if (cb.getAttribute('data-type') === targetType) {
+            cb.checked = true;
+            selectedHistoryRuns.add(cb.value);
+        }
     });
-    updateHistorySelectionUI();
+    
+    updateHistorySelection();
 };
 
 window.updateHistorySelection = function() {
     const cbs = document.querySelectorAll('.history-row-checkbox');
+    
+    // Determine active selection type
+    let newType = null;
+    cbs.forEach(cb => {
+        if (cb.checked) newType = cb.getAttribute('data-type');
+    });
+    
+    // Also check selectedHistoryRuns globally in case of pagination
+    // But since we only know types from the current page, this is an approximation.
+    // However, since UI is page-based, visual dimming per page is correct.
+    window.activeSelectionType = newType;
+    
     let allChecked = true;
     let anyValid = false;
+    
     cbs.forEach(cb => {
-        if(!cb.disabled) {
+        const tr = cb.closest('tr');
+        const cbType = cb.getAttribute('data-type');
+        
+        if (newType && cbType !== newType) {
+            cb.disabled = true;
+            if(tr) tr.classList.add('row-dimmed');
+        } else {
+            cb.disabled = false;
+            if(tr) tr.classList.remove('row-dimmed');
+        }
+        
+        if (!cb.disabled) {
             anyValid = true;
-            if(cb.checked) selectedHistoryRuns.add(cb.value);
-            else {
+            if (cb.checked) {
+                selectedHistoryRuns.add(cb.value);
+            } else {
                 selectedHistoryRuns.delete(cb.value);
                 allChecked = false;
             }
         }
     });
+    
     const master = document.getElementById('historyMasterCheckbox');
     if(master) master.checked = anyValid && allChecked;
+    
     updateHistorySelectionUI();
 };
 
@@ -1721,7 +1761,7 @@ function renderHistoryTable() {
         return;
     }
     
-    paginated.forEach(run => {
+        paginated.forEach(run => {
         const tr = document.createElement('tr');
         tr.className = "border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors";
         
@@ -1744,20 +1784,30 @@ function renderHistoryTable() {
             statusBadge = `<span class="px-2 py-0.5 ml-2 bg-gray-100 text-gray-800 text-[10px] font-bold rounded-full border border-gray-200">${run.status}</span>`;
         }
         
-        const isUnanalyzed = (run.status === 'SCRAPED' || run.status === 'ERROR' || !run.total_articles || run.total_articles == 0);
+        const numArticles = parseInt(run.total_articles, 10) || 0;
+        const isEmpty = numArticles === 0;
+        const isAnalyzed = run.status === 'COMPLETED';
+        const typeStr = isAnalyzed ? 'analyzed' : 'raw';
+        
+        tr.setAttribute('data-type', typeStr);
+        if (isEmpty) {
+            tr.classList.add('row-readonly');
+        }
         
         tr.innerHTML = `
             <td class="py-2 px-3 align-middle text-center">
-                <input type="checkbox" class="history-row-checkbox accent-primary w-4 h-4 cursor-pointer" value="${run.execution_id}" ${isUnanalyzed ? 'disabled' : ''} onchange="updateHistorySelection()">
+                ${!isEmpty ? `<input type="checkbox" class="history-row-checkbox accent-primary w-4 h-4 cursor-pointer" value="${run.execution_id}" data-type="${typeStr}" onchange="updateHistorySelection()">` : ''}
             </td>
             <td class="py-2 px-3 align-middle font-medium flex items-center">${run.search_term || ''}${statusBadge}</td>
             <td class="py-2 px-3 align-middle">${filtersStr}</td>
             <td class="py-2 px-3 align-middle">${scrapedOnHtml}</td>
-            <td class="py-2 px-3 align-middle text-center">${run.total_articles || 0}</td>
+            <td class="py-2 px-3 align-middle text-center">${numArticles}</td>
             <td class="py-2 px-3 align-middle text-right">
-                <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View" ${isUnanalyzed ? 'disabled style="opacity:0.5"' : ''}>
+                ${!isEmpty ? `
+                <button onclick="viewExecution('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded mr-1" title="Load / View">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </button>
+                ` : ''}
                 <button onclick="exportHistory('${run.execution_id}')" class="text-primary hover:bg-primary-container/10 p-1.5 rounded" title="Export JSON">
                     <span class="material-symbols-outlined text-[18px]">download</span>
                 </button>
