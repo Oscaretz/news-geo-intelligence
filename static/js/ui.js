@@ -1297,7 +1297,8 @@ function renderPaginationControls(buttonsContainerId, infoContainerId, totalItem
     const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
     const endIndex = Math.min(currentPage * pageSize, totalItems);
     
-    infoEl.textContent = `Showing ${startIndex}-${endIndex} of ${totalItems} entries`;
+    const template = typeof i18n !== 'undefined' && i18n.dictionary['showingEntries'] ? i18n.dictionary['showingEntries'] : 'Showing {start}-{end} of {total} entries';
+      infoEl.textContent = template.replace('{start}', startIndex).replace('{end}', endIndex).replace('{total}', totalItems);
     
     let html = '';
     

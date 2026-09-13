@@ -244,8 +244,8 @@
                     </div>
                     <!-- Pagination controls -->
                     <div class="flex items-center justify-between px-md py-sm border-t border-outline-variant/10 flex-shrink-0">
-                        <button id="feedPrevBtn" onclick="feedPageChange(-1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors">← Prev</button>
-                        <button id="feedNextBtn" onclick="feedPageChange(1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors">Next →</button>
+                        <button id="feedPrevBtn" onclick="feedPageChange(-1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="prevBtn">← Prev</span></button>
+                        <button id="feedNextBtn" onclick="feedPageChange(1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="nextBtn">Next →</span></button>
                     </div>
                 </div>
             </div>
@@ -397,7 +397,7 @@
             <div class="flex justify-between items-center mb-md flex-wrap gap-3">
                 <h2 class="text-title-md font-title-md text-primary-container" data-i18n="bgJobsQueue">Background Jobs Queue</h2>
                 <div class="flex items-center gap-2">
-                    <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." data-i18n="searchJobs" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
                     <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
                         <option value="ALL" data-i18n="allJobs">All Jobs</option>
                         <option value="ACTIVE">Active (QUEUED / ANALYZING)</option>

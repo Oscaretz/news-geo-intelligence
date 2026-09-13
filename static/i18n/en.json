@@ -74,5 +74,7 @@
   "hoursAgo": "hours ago",
   "selectDates": "Select dates...",
   "searchHistory": "Search history...",
-  "welcomeInstructions": "Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time."
+  "welcomeInstructions": "Enter a keyword, topic, or entity in the search bar above to fetch and analyze news articles in real time.",
+  "searchJobs": "Search jobs...",
+  "showingEntries": "Showing {start}-{end} of {total} entries"
 }

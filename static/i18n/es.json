@@ -74,5 +74,7 @@
   "hoursAgo": "horas",
   "selectDates": "Seleccionar fechas...",
   "searchHistory": "Buscar historial...",
-  "welcomeInstructions": "Ingresa una palabra clave, tema o entidad en la barra de búsqueda de arriba para extraer y analizar artículos de noticias en tiempo real."
+  "welcomeInstructions": "Ingresa una palabra clave, tema o entidad en la barra de búsqueda de arriba para extraer y analizar artículos de noticias en tiempo real.",
+  "searchJobs": "Buscar trabajos...",
+  "showingEntries": "Mostrando {start}-{end} de {total} entradas"
 }
