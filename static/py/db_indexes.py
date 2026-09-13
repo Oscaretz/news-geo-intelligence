@@ -106,10 +106,7 @@ if __name__ == "__main__":
     # Allow manual execution:  python -m static.py.db_indexes
     from dotenv import load_dotenv
     load_dotenv()
-    db_url = os.environ.get(
-        "DATABASE_URL",
-        "postgresql://admin:admin123@localhost:5433/history_db",
-    )
+    db_url = os.environ.get("DATABASE_URL")
     logging.basicConfig(level=logging.INFO)
     apply_indexes_sync(db_url)
     print("Index migration complete.")

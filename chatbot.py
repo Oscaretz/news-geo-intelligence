@@ -142,7 +142,7 @@ async def _quant_context(question, execution_id):
     lines = []
     
     # We use a short-lived connection to avoid event-loop sharing issues in Flask's threading model
-    conn = await asyncpg.connect(os.environ.get("DATABASE_URL", "postgresql://admin:admin123@postgres:5432/history_db"))
+    conn = await asyncpg.connect(os.environ.get("DATABASE_URL"))
     try:
         if execution_id:
             # Check execution
@@ -231,7 +231,7 @@ async def _qual_context(question, execution_id):
     words = re.findall(r"\b[a-zA-ZáéíóúÁÉÍÓÚñÑ]{4,}\b", question.lower())
     keywords = [w for w in words if w not in stopwords][:5]
     
-    conn = await asyncpg.connect(os.environ.get("DATABASE_URL", "postgresql://admin:admin123@postgres:5432/history_db"))
+    conn = await asyncpg.connect(os.environ.get("DATABASE_URL"))
     try:
         articles = []
         if keywords:
@@ -283,7 +283,7 @@ async def build_context(question: str, intent: str, execution_id) -> str:
 _GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 _gemini_client = None
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.6-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-1.5-flash")
 
 
 def get_model_display_name() -> str:

@@ -70,9 +70,9 @@ def _apply_db_indexes_background():
         load_dotenv()
     except ImportError:
         pass
-    db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@postgres:5432/history_db')
-    # Remap Docker hostname when running locally
-    if '@postgres:' in db_url:
+    db_url = os.environ.get('DATABASE_URL')
+    # Remap Docker hostname only when running locally (outside Docker)
+    if db_url and '@postgres:' in db_url and not os.path.exists('/.dockerenv'):
         db_url = db_url.replace('@postgres:5432', '@localhost:5433')
     try:
         from static.py.db_indexes import apply_indexes_sync
@@ -238,7 +238,7 @@ def list_jobs():
         
         async def fetch_jobs():
             import os
-            db_url = os.environ.get('DATABASE_URL', 'postgresql://admin:admin123@postgres:5432/history_db')
+            db_url = os.environ.get('DATABASE_URL')
             try:
                 pool = await asyncpg.create_pool(db_url)
             except Exception:

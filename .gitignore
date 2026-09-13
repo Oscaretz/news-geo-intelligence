@@ -19,3 +19,5 @@ cache.db
 .tmp_dagster_home_*/
 dagster_home/
 logs/
+*.sqlite
+*.db
