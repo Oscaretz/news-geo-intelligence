@@ -48,9 +48,13 @@ SYSTEM_INSTRUCTION = (
     "   - NO respondas preguntas de cultura general, politica exterior al dataset, "
     "entretenimiento, ciencia general, programacion, matematicas u otros temas "
     "que no sean analisis de las noticias rastreadas.\n\n"
-    "2. CITACION OBLIGATORIA:\n"
-    "   - Toda afirmacion factual DEBE citarse con la fuente del articulo en el "
-    "formato: [Fuente: <nombre_fuente>, Fecha: <fecha>]\n"
+    "2. CITACION INTELIGENTE:\n"
+    "   - Toda afirmacion factual directa (cualitativa) DEBE citarse con la fuente del articulo en el "
+    "formato: [Fuente: <nombre_fuente>, Fecha: <fecha>].\n"
+    "   - SIN EMBARGO, si el usuario hace una pregunta CUANTITATIVA o pide un listado extenso "
+    "(ej. '¿En cuántos estados?', 'Lista todos los estados'), responde de manera fluida usando los "
+    "datos agregados sin necesidad de citar la fuente individual para CADA elemento si eso "
+    "causa que omitas información. Prioriza responder la pregunta completa.\n"
     "   - Nunca inventes eventos, fechas, cantidades o estados que no esten "
     "explicitamente en el contexto suministrado.\n\n"
     "3. ANTI-JAILBREAK / ANTI-PROMPT-INJECTION:\n"
@@ -134,77 +138,6 @@ def classify_intent(question: str) -> str:
 # 5. DATABASE CONTEXT BUILDERS
 # ==============================================================================
 
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://admin:admin123@postgres:5432/history_db")
-_db_pool = None
-
-
-async def _get_pool():
-    global _db_pool
-    if _db_pool is None:
-        _db_pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=4)
-    return _db_pool
-
-
-async def _quant_context(execution_id):
-    pool = await _get_pool()
-    lines = []
-    async with pool.acquire() as c:
-        # total articles
-        if execution_id:
-            total = await c.fetchval("SELECT COUNT(*) FROM articles WHERE execution_id = $1", execution_id)
-        else:
-            total = await c.fetchval("SELECT COUNT(*) FROM articles")
-        lines.append(f"Total de articulos en el dataset: {total}")
-
-        # with geo
-        if execution_id:
-            wg = await c.fetchval(
-                "SELECT COUNT(*) FROM articles WHERE execution_id = $1 AND geodata IS NOT NULL AND jsonb_typeof(geodata) = 'array' AND jsonb_array_length(geodata) > 0",
-                execution_id
-            )
-        else:
-            wg = await c.fetchval(
-                "SELECT COUNT(*) FROM articles WHERE geodata IS NOT NULL AND jsonb_typeof(geodata) = 'array' AND jsonb_array_length(geodata) > 0"
-            )
-        lines.append(f"Articulos con ubicacion detectada: {wg}")
-
-        # top sources
-        if execution_id:
-            rows = await c.fetch(
-                "SELECT source, COUNT(*) n FROM articles WHERE execution_id = $1 AND source IS NOT NULL GROUP BY source ORDER BY n DESC LIMIT 5",
-                execution_id
-            )
-        else:
-            rows = await c.fetch(
-                "SELECT source, COUNT(*) n FROM articles WHERE source IS NOT NULL GROUP BY source ORDER BY n DESC LIMIT 5"
-            )
-        if rows:
-            lines.append("Top fuentes:")
-            for r in rows:
-                lines.append(f"  - {r['source']}: {r['n']}")
-
-        # top states from geodata
-        geo_q = (
-            "SELECT state, COUNT(*) n FROM articles, "
-            "LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(geodata)='array' THEN geodata ELSE '[]'::jsonb END) AS state "
-        )
-        if execution_id:
-            geo_rows = await c.fetch(geo_q + "WHERE execution_id = $1 GROUP BY state ORDER BY n DESC LIMIT 10", execution_id)
-        else:
-            geo_rows = await c.fetch(geo_q + "GROUP BY state ORDER BY n DESC LIMIT 10")
-        if geo_rows:
-            lines.append("Estados/Ubicaciones mas mencionados:")
-            for r in geo_rows:
-                lines.append(f"  - {r['state']}: {r['n']}")
-
-        # date range
-        if execution_id:
-            dr = await c.fetchrow("SELECT MIN(date) earliest, MAX(date) latest FROM articles WHERE execution_id = $1 AND date IS NOT NULL", execution_id)
-        else:
-            dr = await c.fetchrow("SELECT MIN(date) earliest, MAX(date) latest FROM articles WHERE date IS NOT NULL")
-# 5. DATABASE CONTEXT BUILDERS (RAG)
-# ==============================================================================
-
 async def _quant_context(question, execution_id):
     lines = []
     
@@ -262,7 +195,21 @@ async def _quant_context(question, execution_id):
                 for s in srcs:
                     lines.append(f"      * {s['source']}: {s['c']} artículos")
                     
-            # Active jobs
+        # top states from geodata (Shared across both branches)
+        geo_q = (
+            "SELECT state, COUNT(*) n FROM articles, "
+            "LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(geodata)='array' THEN geodata ELSE '[]'::jsonb END) AS state "
+        )
+        if execution_id:
+            geo_rows = await conn.fetch(geo_q + "WHERE execution_id = $1 GROUP BY state ORDER BY n DESC LIMIT 15", execution_id)
+        else:
+            geo_rows = await conn.fetch(geo_q + "GROUP BY state ORDER BY n DESC LIMIT 15")
+        if geo_rows:
+            lines.append("  - Estados/Ubicaciones donde se reportan los sucesos:")
+            for r in geo_rows:
+                lines.append(f"      * {r['state']}: {r['n']} artículos")
+                    
+        # Active jobs
             active = await conn.fetch("SELECT search_term, status, scraped_at FROM search_executions WHERE status IN ('SCRAPING', 'SCRAPED', 'ANALYZING')")
             if active:
                 lines.append("  - Trabajos recientes en curso:")

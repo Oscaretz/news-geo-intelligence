@@ -2443,9 +2443,11 @@ async function sendChatMessage() {
                     if (data.trim() === '[DONE]') {
                         // Finished
                     } else if (data.trim().startsWith('[ERROR]')) {
-                        fullResponse += `<br><span class="text-red-500">${escapeHtml(data)}</span>`;
+                        const msg = data.replace('[ERROR]', '').replace(/\\n/g, '').trim();
+                        fullResponse += `\n\n❌ **Error:** ${msg}`;
                     } else if (data.trim().startsWith('[QUOTA]') || data.trim().startsWith('[RATE_LIMITED]')) {
-                        fullResponse += `<br><span class="text-orange-600 font-medium">${escapeHtml(data)}</span>`;
+                        const msg = data.replace(/\[(?:QUOTA|RATE_LIMITED)\]/, '').replace(/\\n/g, '').trim();
+                        fullResponse += `\n\n⚠️ **Aviso:** ${msg}`;
                     } else {
                         fullResponse += data;
                     }
