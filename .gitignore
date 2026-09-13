@@ -1,19 +1,13 @@
-# Bases de datos y logs
-
-
+﻿# Bases de datos y logs
 debug_scraping.txt
 
 # Seguridad y binarios
-__pycache__/
-
-
-# Archivos de backend (Bloqueados temporalmente para enfocar el agente en la UI)
-.env
 __pycache__/
 venv/
 news_images/
 stitch/
 cache.db
+.env
 
 # Dagster temporary storage
 .tmp_dagster_home_*/
@@ -21,3 +15,7 @@ dagster_home/
 logs/
 *.sqlite
 *.db
+
+# Node & Build artifacts
+node_modules/
+tailwindcss.exe

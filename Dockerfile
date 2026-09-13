@@ -16,8 +16,19 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install chromium && playwright install-deps chromium
 RUN chmod -R 777 /ms-playwright
 
+# Install curl and standalone Tailwind CLI
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64 && \
+    chmod +x tailwindcss-linux-x64 && \
+    mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss && \
+    apt-get purge -y --auto-remove curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy source code
 COPY . .
+
+# Compile Tailwind CSS in production mode
+RUN tailwindcss -i static/css/input.css -o static/css/output.css --minify
 
 # Change ownership so appuser can write cache.db and debug files
 RUN chown -R appuser:appuser /app
