@@ -292,27 +292,29 @@ async def _qual_context(question, execution_id):
             conds = " OR ".join([f"LOWER(title) LIKE '%{kw}%'" for kw in keywords])
             if execution_id:
                 articles = await conn.fetch(
-                    f"SELECT article_id, title, source, date, geodata FROM articles WHERE execution_id = $1 AND ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8",
+                    f"SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE execution_id = $1 AND ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8",
                     execution_id
                 )
             else:
                 articles = await conn.fetch(
-                    f"SELECT article_id, title, source, date, geodata FROM articles WHERE ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8"
+                    f"SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8"
                 )
                 
         if not articles and not keywords:
             # Fallback if no keywords found, just grab latest
             if execution_id:
-                articles = await conn.fetch("SELECT article_id, title, source, date, geodata FROM articles WHERE execution_id = $1 ORDER BY date DESC NULLS LAST LIMIT 5", execution_id)
+                articles = await conn.fetch("SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE execution_id = $1 ORDER BY date DESC NULLS LAST LIMIT 5", execution_id)
             else:
-                articles = await conn.fetch("SELECT article_id, title, source, date, geodata FROM articles ORDER BY date DESC NULLS LAST LIMIT 5")
+                articles = await conn.fetch("SELECT article_id, title, source, date, geodata, content_snippet FROM articles ORDER BY date DESC NULLS LAST LIMIT 5")
                 
         if articles:
             lines.append("Extractos de artículos relevantes encontrados:")
             for a in articles:
                 lines.append(f"[Article ID: {a['article_id']}]")
                 lines.append(f"Título: {a['title']}")
-                lines.append(f"Fuente: {a['source']} | Fecha: {a['date']} | Ubicaciones: {a['geodata']}\n")
+                
+                snippet = (a.get('content_snippet') or "No text available").strip().replace("\n", " ")
+                lines.append(f"Fuente: {a['source']} | Fecha: {a['date']} | Ubicaciones: {a['geodata']} | Fragmento: {snippet}\n")
         else:
             lines.append("No se encontraron articulos relevantes para la consulta.")
     finally:

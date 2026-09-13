@@ -662,10 +662,6 @@ class OrchestratorAgent:
                     await self.db.execute("UPDATE articles_cache SET ui_selected = ? WHERE url = ?", (rank, a['url']))
                 await self.db.commit()
             
-            # Clean internal scraped_text from ALL processed articles (prevent memory/payload leak)
-            for a in articles:
-                a.pop('scraped_text', None)
-            
             if execution_id:
                 update_progress(execution_id, 100, "Extracción finalizada.")
                 
@@ -695,15 +691,21 @@ class OrchestratorAgent:
                             r_url = a.get("real_url") or a.get("url") or ""
                             article_id = hashlib.md5(r_url.encode("utf-8")).hexdigest()
                             raw_img = a.get("image_url") or a.get("image") or ""
+                            # Store up to 800 chars of the text for Chatbot context
+                            snippet = a.get("scraped_text", "")[:800]
                             await conn.execute(
                                 """
-                                INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url) 
-                                VALUES ($1, $2, $3, $4, $5, $6, NULL, $7) 
-                                ON CONFLICT (article_id, execution_id) DO UPDATE SET image_url = EXCLUDED.image_url
+                                INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url, content_snippet) 
+                                VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8) 
+                                ON CONFLICT (article_id, execution_id) DO UPDATE SET image_url = EXCLUDED.image_url, content_snippet = EXCLUDED.content_snippet
                                 """,
-                                article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), raw_img
+                                article_id, execution_id, a.get("title", ""), r_url, a.get("date", ""), a.get("source", ""), raw_img, snippet
                             )
                             
+            # Clean internal scraped_text from ALL processed articles (prevent memory/payload leak)
+            for a in articles:
+                a.pop('scraped_text', None)
+                
             return execution_id, final_articles
 
     async def map_stream(self, execution_id, country="mx"):
