@@ -2416,7 +2416,7 @@ function parseChatMarkdown(text) {
         return `<button onclick="window.openArticleLink('${id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-mono transition-colors mx-1" title="Ver Artículo"><span class="material-symbols-outlined text-[10px]">article</span>${id.substring(0,8)}</button>`;
     });
     
-    return html;
+    return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { ADD_ATTR: ['onclick'] }) : html;
 }
 
 window.openArticleLink = function(articleId) {
