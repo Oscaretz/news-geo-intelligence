@@ -476,7 +476,7 @@ class OrchestratorAgent:
             except Exception as pool_err:
                 # Si falló resolviendo 'postgres' en entorno local (fuera del contenedor)
                 if '@postgres:' in db_url:
-                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+                    db_url = db_url.replace('@postgres:5432', '@localhost:5432')
                     self.history_db = await asyncpg.create_pool(db_url)
                 else:
                     raise pool_err
