@@ -1424,8 +1424,30 @@ window.mapSelectedHistory = async function() {
         const data = await response.json();
         
         multiRunMode = true;
-        resetAnalyticsFilters();
         
+        // --- Full Teardown ---
+        totalArticles = 0;
+        uniqueStates = new Set();
+        stateFrequency = {};
+        sourceFrequency = {};
+        if(typeof analyticsSelectedStates !== 'undefined') analyticsSelectedStates.clear();
+        if(typeof analyticsSelectedSources !== 'undefined') analyticsSelectedSources.clear();
+        if(typeof feedSelectedStates !== 'undefined') feedSelectedStates.clear();
+        if(typeof feedSelectedSources !== 'undefined') feedSelectedSources.clear();
+        currentFilter = null;
+        if(typeof updateAnalyticsTriggerLabel === 'function') {
+            ['State', 'Source'].forEach(type => updateAnalyticsTriggerLabel(type));
+        }
+        const analyticsDate = document.getElementById('analyticsDateFilter');
+        if (analyticsDate) {
+            if (analyticsDate._flatpickr) analyticsDate._flatpickr.clear();
+            analyticsDate.value = '';
+        }
+        const resetBtn = document.getElementById('analyticsResetBtn');
+        if (resetBtn) resetBtn.classList.add('hidden');
+        if (typeof resetAnalytics === 'function') resetAnalytics();
+        if (typeof resetMapState === 'function') resetMapState();
+
         // Setup Active Runs chips
         const activeRunsContainer = document.getElementById('activeRunsContainer');
         if(activeRunsContainer) {
@@ -1438,9 +1460,14 @@ window.mapSelectedHistory = async function() {
             
             shown.forEach(exec => {
                 const term = exec.search_term || exec.execution_id.substring(0,8);
+                let f = {};
+                try { f = typeof exec.filters === 'string' ? JSON.parse(exec.filters) : (exec.filters || {}); } catch(e){}
+                const qrange = f.qrangedate || 'All time';
+                const scrapedStr = new Date(exec.scraped_at).toLocaleString();
+                
                 activeRunsContainer.innerHTML += `
                     <div class="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium border border-primary/20">
-                        <span class="truncate max-w-[150px]" title="Query: ${exec.search_term}\nDate: ${formatTemporal(exec.scraped_at)}">${term}</span>
+                        <span class="truncate max-w-[150px]" title="Query: ${exec.search_term}\nSearch Dates: ${qrange}\nScraped: ${scrapedStr}">${term}</span>
                         <button onclick="removeAggregatedRun('${exec.execution_id}')" class="hover:bg-primary/20 rounded-full w-4 h-4 flex items-center justify-center transition-colors">
                             <span class="material-symbols-outlined text-[12px]">close</span>
                         </button>
@@ -1467,11 +1494,17 @@ window.mapSelectedHistory = async function() {
         const mInput = document.getElementById('mainSearchInput');
         if(mInput) mInput.value = '';
         
-        // Parse articles
-        let parsed = data.articles.map(a => {
+        // --- Full Hydration ---
+        const rawArticles = data.articles || [];
+        collectedArticles = rawArticles.map(a => {
             let gd = [];
-            if(typeof a.geodata === 'string') gd = JSON.parse(a.geodata);
-            else if(Array.isArray(a.geodata)) gd = a.geodata;
+            try {
+                if(typeof a.geodata === 'string' && a.geodata !== "null") gd = JSON.parse(a.geodata);
+                else if(Array.isArray(a.geodata)) gd = a.geodata;
+                else if(a.states && a.states !== "null") {
+                    gd = typeof a.states === 'string' ? JSON.parse(a.states) : a.states;
+                }
+            } catch(e){}
             
             let fdate = a.date || '';
             if (fdate && fdate.length > 10) fdate = fdate.substring(0,10);
@@ -1480,26 +1513,53 @@ window.mapSelectedHistory = async function() {
                 url: a.url,
                 date: fdate,
                 source: a.source,
-                states: gd,
+                states: Array.isArray(gd) ? gd : [],
                 origin_search_term: a.origin_search_term,
-                image: a.image_url
+                image: a.image_url || a.image || null,
+                image_url: a.image_url || a.image || null
             };
         });
-        
-        collectedArticles = parsed;
+
         extractedStatesGlobal = [];
-        parsed.forEach(a => {
-            if(a.states && Array.isArray(a.states)) {
+        let hasGeodata = false;
+
+        collectedArticles.forEach(a => {
+            if (typeof updateKPIs === 'function') updateKPIs(a);
+            if (typeof updateMap === 'function') updateMap(a.states);
+            if (typeof updateSourcesBar === 'function') updateSourcesBar(a.source);
+            if (typeof updateStatesBar === 'function') updateStatesBar(a.states);
+            if (typeof updateTimeline === 'function') updateTimeline(a.date);
+            
+            if (a.states && Array.isArray(a.states) && a.states.length > 0) {
                 extractedStatesGlobal.push(...a.states);
+                hasGeodata = true;
             }
         });
+
+        const exportBtn = document.getElementById('exportExcelBtn');
+        if (exportBtn) exportBtn.classList.remove('hidden');
+        const mapearBtn = document.getElementById('mapearBtn');
+        if (mapearBtn) mapearBtn.classList.remove('hidden');
+
+        if(typeof renderTopStories === 'function') renderTopStories();
+        if(typeof renderFullFeed === 'function') renderFullFeed();
+        if(typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
         
-        currentFilter = { state: 'ALL', source: 'ALL', search: '' };
-        rebuildAnalyticsData();
-        updateChartsAndMap();
+        if (hasGeodata) {
+            setTimeout(() => {
+                if (typeof window.invalidateMapSize === 'function') {
+                    window.invalidateMapSize();
+                } else if (typeof map !== 'undefined' && map) {
+                    map.invalidateSize();
+                }
+                if (typeof renderChoropleth === 'function') {
+                    renderChoropleth();
+                }
+            }, 120);
+        }
         
-        switchTab('view-analytics');
-        updateStatus(`Aggregated ${parsed.length} unique articles across ${data.executions.length} runs.`);
+        if(typeof switchTab === 'function') switchTab('analytics');
+        updateStatus(`Aggregated ${collectedArticles.length} unique articles across ${data.executions.length} runs (complete).`);
     } catch(e) {
         console.error(e);
         updateStatus('Error aggregating executions', true);
@@ -1522,11 +1582,15 @@ window.clearAllAggregatedRuns = function() {
     if(activeRunsContainer) activeRunsContainer.innerHTML = '';
     
     // Clear data
+    totalArticles = 0;
+    uniqueStates = new Set();
+    stateFrequency = {};
+    sourceFrequency = {};
     collectedArticles = [];
     extractedStatesGlobal = [];
-    currentFilter = { state: 'ALL', source: 'ALL', search: '' };
-    rebuildAnalyticsData();
-    updateChartsAndMap();
+    currentFilter = null;
+    if (typeof resetAnalytics === 'function') resetAnalytics();
+    if (typeof resetMapState === 'function') resetMapState();
     
     updateHistorySelectionUI();
     switchTab('view-history');
