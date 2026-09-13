@@ -7,3 +7,6 @@ stitch/
 .tmp_dagster_home_*/
 dagster_home/
 logs/
+
+extra/
+tests/
