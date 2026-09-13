@@ -235,16 +235,21 @@ async def _qual_context(question, execution_id):
     try:
         articles = []
         if keywords:
-            # Build ILIKE conditions (safe since keywords are alpha-only from regex)
-            conds = " OR ".join([f"LOWER(title) LIKE '%{kw}%'" for kw in keywords])
+            # Build positional ILIKE conditions (e.g. $1, $2, ...)
+            params = [f"%{kw}%" for kw in keywords]
             if execution_id:
+                # execution_id is $1, keywords start at $2
+                conds = " OR ".join([f"title ILIKE ${i+2}" for i in range(len(keywords))])
                 articles = await conn.fetch(
                     f"SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE execution_id = $1 AND ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8",
-                    execution_id
+                    execution_id, *params
                 )
             else:
+                # keywords start at $1
+                conds = " OR ".join([f"title ILIKE ${i+1}" for i in range(len(keywords))])
                 articles = await conn.fetch(
-                    f"SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8"
+                    f"SELECT article_id, title, source, date, geodata, content_snippet FROM articles WHERE ({conds}) ORDER BY date DESC NULLS LAST LIMIT 8",
+                    *params
                 )
                 
         if not articles and not keywords:
