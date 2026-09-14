@@ -2572,7 +2572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
                   </div>
                   <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm">
-                    <span data-i18n="chatPlaceholder">Chat limpiado. ¿En qué más te ayudo?</span>
+                    <span data-i18n="chatCleared">Chat limpiado. ¿En qué más te ayudo?</span>
                   </div>
                 </div>
             `;

@@ -57,6 +57,8 @@
   "online": "En Línea",
   "chatPlaceholder": "Haz una pregunta sobre los datos...",
   "clearChat": "Limpiar Chat",
+  "chatGreeting": "Hola, soy tu asistente analítico. ¿Qué te gustaría saber sobre los artículos en el dataset actual?",
+  "chatCleared": "Chat limpiado. ¿En qué más te ayudo?",
   "language": "Idioma",
   "newsPreview": "Vista Previa",
   "today": "Hoy",

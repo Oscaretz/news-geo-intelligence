@@ -1,4 +1,4 @@
-﻿const i18n = {
+const i18n = {
   currentLang: localStorage.getItem('language') || 'en',
   dictionary: {},
   observer: null,
@@ -46,7 +46,7 @@
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
       if (this.dictionary[key]) {
-        if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'search')) {
+        if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'search' || !el.type))) {
           el.placeholder = this.dictionary[key];
         } else {
           el.innerHTML = this.dictionary[key];
