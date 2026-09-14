@@ -2377,6 +2377,22 @@ window.toggleChatbot = function() {
     }
 }
 
+window.toggleChatbotExpand = function() {
+    const drawer = document.getElementById('chatbot-drawer');
+    const icon = document.getElementById('chatbot-expand-icon');
+    if (!drawer) return;
+    
+    if (drawer.classList.contains('sm:w-[720px]')) {
+        drawer.classList.remove('sm:w-[720px]', 'w-[720px]');
+        drawer.classList.add('sm:w-[460px]', 'w-[420px]');
+        if (icon) icon.textContent = 'open_in_full';
+    } else {
+        drawer.classList.remove('sm:w-[460px]', 'w-[420px]');
+        drawer.classList.add('sm:w-[720px]', 'w-[720px]');
+        if (icon) icon.textContent = 'close_fullscreen';
+    }
+};
+
 function appendChatMessage(role, text) {
     const container = document.getElementById('chat-messages');
     const msgDiv = document.createElement('div');
@@ -2394,7 +2410,7 @@ function appendChatMessage(role, text) {
             <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
               <span class="material-symbols-outlined text-sm">smart_toy</span>
             </div>
-            <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm prose prose-sm max-w-none chat-markdown">
+            <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm prose prose-sm max-w-none chat-markdown w-full overflow-hidden">
               ${parseChatMarkdown(text)}
             </div>
         `;
@@ -2416,20 +2432,89 @@ function escapeHtml(unsafe) {
 
 function parseChatMarkdown(text) {
     if (!text) return "";
+    let html = "";
+    
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+        try {
+            html = marked.parse(text, { breaks: true, gfm: true });
+        } catch (e) {
+            console.error("Markdown parse error:", e);
+            html = fallbackParseChatMarkdown(text);
+        }
+    } else {
+        html = fallbackParseChatMarkdown(text);
+    }
+    
+    // Citations [Article ID: xxxx]
+    html = html.replace(/\[Article ID:\s*([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+        return `<button onclick="window.openArticleLink('${id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-mono transition-colors mx-1 select-none" title="Ver Artículo"><span class="material-symbols-outlined text-[10px]">article</span>${id.substring(0,8)}</button>`;
+    });
+    
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(html, {
+            ADD_TAGS: ['table', 'thead', 'tbody', 'tr', 'th', 'td', 'button', 'span'],
+            ADD_ATTR: ['onclick', 'target', 'class', 'title']
+        });
+    }
+    return html;
+}
+
+function fallbackParseChatMarkdown(text) {
     let html = escapeHtml(text);
     // Bold
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     // Italic
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    // Line breaks
-    html = html.replace(/\n/g, '<br>');
     
-    // Citations [Article ID: xxxx]
-    html = html.replace(/\[Article ID:\s*([a-zA-Z0-9_-]+)\]/g, (match, id) => {
-        return `<button onclick="window.openArticleLink('${id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-mono transition-colors mx-1" title="Ver Artículo"><span class="material-symbols-outlined text-[10px]">article</span>${id.substring(0,8)}</button>`;
-    });
-    
-    return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { ADD_ATTR: ['onclick'] }) : html;
+    // Simple table parser if marked is unavailable
+    if (html.includes('|')) {
+        const lines = html.split('\n');
+        let inTable = false;
+        let result = [];
+        let tableRows = [];
+        
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                inTable = true;
+                tableRows.push(trimmed);
+            } else {
+                if (inTable) {
+                    result.push(renderSimpleTable(tableRows));
+                    tableRows = [];
+                    inTable = false;
+                }
+                result.push(line);
+            }
+        }
+        if (inTable) {
+            result.push(renderSimpleTable(tableRows));
+        }
+        html = result.join('<br>');
+    } else {
+        html = html.replace(/\n/g, '<br>');
+    }
+    return html;
+}
+
+function renderSimpleTable(rows) {
+    if (rows.length < 2) return rows.join('<br>');
+    let out = '<div class="overflow-x-auto my-2"><table>';
+    let isHeader = true;
+    for (let r of rows) {
+        if (/^\|[-:\s|]+\|$/.test(r)) {
+            isHeader = false;
+            continue;
+        }
+        const cells = r.split('|').slice(1, -1);
+        out += '<tr>';
+        for (let c of cells) {
+            out += isHeader ? `<th>${c.trim()}</th>` : `<td>${c.trim()}</td>`;
+        }
+        out += '</tr>';
+    }
+    out += '</table></div>';
+    return out;
 }
 
 window.openArticleLink = function(articleId) {
