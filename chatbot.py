@@ -120,7 +120,7 @@ def sanitize_input(text: str) -> str:
 
 
 # ==============================================================================
-# 4. INTENT CLASSIFIER
+# 4. INTENT CLASSIFIER & TEXT-TO-SQL ROUTER
 # ==============================================================================
 
 _QUANT_RE = re.compile(
@@ -132,9 +132,165 @@ cuando|when|fecha|date|promedio|average)\b",
     re.IGNORECASE,
 )
 
+async def classify_intent(question: str) -> str:
+    """Classify user intent into SEMANTIC or ANALYTICAL using a fast LLM."""
+    prompt = (
+        "Evaluate the following user question and classify its intent strictly as either 'SEMANTIC' or 'ANALYTICAL'.\n"
+        "Return ONLY the word SEMANTIC or ANALYTICAL.\n\n"
+        "- SEMANTIC: questions about the news content, meanings, specific events, or general summaries.\n"
+        "- ANALYTICAL: questions requiring counting, aggregations, metadata, database origins, system logs, grouping, or data distributions.\n\n"
+        f"Question: {question}"
+    )
+    
+    if not _GROQ_KEY:
+        return "ANALYTICAL" if _QUANT_RE.search(question) else "SEMANTIC"
 
-def classify_intent(question: str) -> str:
-    return "quantitative" if _QUANT_RE.search(question) else "qualitative"
+    client = _get_groq_client()
+    for model_id in GROQ_REWRITE_MODELS:
+        try:
+            res = await client.chat.completions.create(
+                model=model_id,
+                messages=[{"role": "system", "content": prompt}],
+                temperature=0.0,
+                max_tokens=10,
+            )
+            ans = res.choices[0].message.content.strip().upper() if res.choices else ""
+            if "ANALYTICAL" in ans:
+                return "ANALYTICAL"
+            if "SEMANTIC" in ans:
+                return "SEMANTIC"
+        except Exception as e:
+            continue
+    
+    return "ANALYTICAL" if _QUANT_RE.search(question) else "SEMANTIC"
+
+
+SQL_SCHEMA_DDL = """
+-- PostgreSQL Star Schema DDL
+-- Tables: fact_news_metrics, dim_date, dim_entities, dim_source, scraper logs
+
+CREATE VIEW fact_news_metrics AS SELECT * FROM articles;
+CREATE VIEW dim_date AS SELECT DISTINCT date FROM articles;
+CREATE VIEW dim_source AS SELECT DISTINCT source FROM articles;
+CREATE VIEW scraper_logs AS SELECT * FROM search_executions;
+-- dim_entities represented by geodata JSONB in articles
+
+CREATE TABLE search_executions (
+    execution_id TEXT PRIMARY KEY,
+    timestamp TIMESTAMP,
+    search_term TEXT,
+    filters JSONB,
+    status TEXT,
+    end_time TIMESTAMP,
+    scraped_at TIMESTAMP
+);
+
+CREATE TABLE articles (
+    article_id TEXT,
+    execution_id TEXT,
+    title TEXT,
+    url TEXT,
+    date TEXT,
+    source TEXT,
+    geodata JSONB,
+    image_url TEXT,
+    content_snippet TEXT,
+    PRIMARY KEY (article_id, execution_id)
+);
+"""
+
+async def generate_sql(question: str, execution_id: str = None) -> str:
+    """Generates read-only PostgreSQL query based on the analytical question."""
+    system_prompt = (
+        "You are an expert PostgreSQL developer. Write a valid, read-only SQL query "
+        "to answer the user's analytical question based on the following schema:\n\n"
+        f"{SQL_SCHEMA_DDL}\n\n"
+        "Rules:\n"
+        "1. Return ONLY the SQL query, enclosed in ```sql and ```.\n"
+        "2. Do not include any explanation.\n"
+        "3. Only use SELECT statements.\n"
+    )
+    if execution_id:
+        system_prompt += f"4. The current execution_id is '{execution_id}'. Always filter by this execution_id if applicable.\n"
+    else:
+        system_prompt += "4. Query globally across all executions.\n"
+
+    # Try Groq models first
+    if _GROQ_KEY:
+        client = _get_groq_client()
+        for model_id in GROQ_MODELS:
+            try:
+                res = await client.chat.completions.create(
+                    model=model_id,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question}
+                    ],
+                    temperature=0.0,
+                    max_tokens=500,
+                )
+                ans = res.choices[0].message.content if res.choices else ""
+                
+                match = re.search(r"```sql\s*(.*?)\s*```", ans, re.IGNORECASE | re.DOTALL)
+                if match:
+                    return match.group(1).strip()
+                ans = ans.strip()
+                if ans.lower().startswith("select"):
+                    return ans
+            except Exception:
+                continue
+            
+    # Try Gemini fallback
+    try:
+        gemini = _get_gemini_client()
+        res = await gemini.aio.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=[{"role": "user", "parts": [{"text": system_prompt + "\n\nQuestion: " + question}]}]
+        )
+        ans = res.text
+        match = re.search(r"```sql\s*(.*?)\s*```", ans, re.IGNORECASE | re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        ans = ans.strip()
+        if ans.lower().startswith("select"):
+            return ans
+    except Exception:
+        pass
+        
+    return ""
+
+async def execute_sql(sql: str) -> str:
+    """Executes SQL in a read-only transaction and returns formatted results."""
+    if not sql or not sql.lower().strip().startswith("select"):
+        return "Error: No valid SELECT query generated."
+        
+    db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+    if '@postgres:' in db_url:
+        db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+        
+    try:
+        conn = await asyncpg.connect(db_url)
+        try:
+            async with conn.transaction():
+                await conn.execute("SET TRANSACTION READ ONLY;")
+                rows = await conn.fetch(sql)
+                
+                if not rows:
+                    return "No results found."
+                    
+                columns = list(rows[0].keys())
+                lines = [", ".join(columns)]
+                for idx, row in enumerate(rows):
+                    if idx >= 50:
+                        lines.append(f"... (truncado a 50 resultados de {len(rows)})")
+                        break
+                    lines.append(", ".join([str(row[c]) for c in columns]))
+                
+                return "\n".join(lines)
+        finally:
+            await conn.close()
+    except Exception as e:
+        return f"Database error during execution: {e}"
 
 
 # ==============================================================================
@@ -563,11 +719,20 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
     search_query = await rewrite_query(clean_q, chat_history)
 
     # 3. Classify intent and retrieve context using rewritten query
-    intent = classify_intent(search_query)
+    intent = await classify_intent(search_query)
     logger.info(f"[ChatBot] intent={intent} eid={execution_id} search_query='{search_query}' ip={ip}")
 
     try:
-        context = await build_context(search_query, intent, execution_id)
+        if intent == "ANALYTICAL":
+            sql_query = await generate_sql(search_query, execution_id)
+            if sql_query:
+                logger.info(f"[ChatBot] Generated SQL: {sql_query}")
+                raw_results = await execute_sql(sql_query)
+                context = f"Resultados de la consulta SQL:\n{raw_results}"
+            else:
+                context = "No se pudo generar una consulta SQL para esta pregunta."
+        else:
+            context = await build_context(search_query, intent, execution_id)
     except Exception as e:
         logger.error(f"[ChatBot] DB context error: {e}")
         context = "No fue posible recuperar datos del dataset en este momento."

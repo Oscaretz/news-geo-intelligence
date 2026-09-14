@@ -532,6 +532,10 @@ class OrchestratorAgent:
                     )
                 """)
                 await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url TEXT;")
+                await conn.execute("CREATE OR REPLACE VIEW fact_news_metrics AS SELECT * FROM articles;")
+                await conn.execute("CREATE OR REPLACE VIEW dim_date AS SELECT DISTINCT date FROM articles;")
+                await conn.execute("CREATE OR REPLACE VIEW dim_source AS SELECT DISTINCT source FROM articles;")
+                await conn.execute("CREATE OR REPLACE VIEW scraper_logs AS SELECT * FROM search_executions;")
         except Exception as e:
             logger.error(f"⚠️ [Postgres Init Error]: {e}")
             raise
