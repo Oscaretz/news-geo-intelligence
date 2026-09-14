@@ -4,8 +4,8 @@
 #   1. Strict system-prompt guardrails (scope-locked to the scraped dataset)
 #   2. Intent classifier  -> quantitative (SQL) or qualitative (context-RAG)
 #   3. DB context builder -> runs safe parameterized queries, assembles evidence
-#   4. Grok streaming     -> PRIMARY path via xAI OpenAI-compatible endpoint
-#   5. Gemini streaming   -> FALLBACK on Grok rate-limit / quota exhaustion
+#   4. Groq streaming     -> PRIMARY path via native groq SDK (llama / mixtral)
+#   5. Gemini streaming   -> FALLBACK on Groq rate-limit / quota exhaustion
 #   6. Rate limiter       -> per-IP sliding window; graceful quota message
 #
 # All user input is sanitized before reaching the LLM.
@@ -29,7 +29,7 @@ except ImportError:
 
 from google import genai
 from google.genai import types
-from openai import AsyncOpenAI, RateLimitError as OpenAIRateLimitError
+from groq import AsyncGroq, RateLimitError as GroqRateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -285,24 +285,20 @@ async def build_context(question: str, intent: str, execution_id) -> str:
 
 
 # ==============================================================================
-# 6. LLM CLIENTS — Grok (primary) & Gemini (fallback)
+# 6. LLM CLIENTS — Groq (primary) & Gemini (fallback)
 # ==============================================================================
 
-# --- Grok via xAI OpenAI-compatible endpoint ---
-_GROK_KEY = os.environ.get("GROK_API_KEY", "")
-GROK_MODEL = os.environ.get("GROK_MODEL", "grok-3-mini")
-_GROK_BASE_URL = "https://api.x.ai/v1"
-_grok_client: AsyncOpenAI | None = None
+# --- Groq via native groq SDK ---
+_GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+_groq_client: AsyncGroq | None = None
 
 
-def _get_grok_client() -> AsyncOpenAI:
-    global _grok_client
-    if _grok_client is None:
-        _grok_client = AsyncOpenAI(
-            api_key=_GROK_KEY,
-            base_url=_GROK_BASE_URL,
-        )
-    return _grok_client
+def _get_groq_client() -> AsyncGroq:
+    global _groq_client
+    if _groq_client is None:
+        _groq_client = AsyncGroq(api_key=_GROQ_KEY)
+    return _groq_client
 
 
 # --- Gemini via google-genai SDK ---
@@ -316,9 +312,9 @@ def get_model_display_name() -> str:
     Returns the configured model name directly from settings,
     stripping the technical 'models/' prefix if present, without hardcoded mappings.
     """
-    raw_model = (GROK_MODEL or GEMINI_MODEL or "").strip()
+    raw_model = (GROQ_MODEL or GEMINI_MODEL or "").strip()
     if not raw_model:
-        return "Grok / Gemini"
+        return "Groq / Gemini"
     return raw_model.split("/")[-1]
 
 
@@ -378,18 +374,18 @@ async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
 
 
 # ==============================================================================
-# 9. GROK STREAMING GENERATOR  (primary)
+# 9. GROQ STREAMING GENERATOR  (primary)
 # ==============================================================================
 
-async def _stream_grok(user_prompt: str) -> AsyncGenerator:
-    """Inner async generator that streams Grok tokens via xAI OpenAI-compatible API."""
-    client = _get_grok_client()
+async def _stream_groq(user_prompt: str) -> AsyncGenerator:
+    """Inner async generator that streams Groq tokens via native groq SDK."""
+    client = _get_groq_client()
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
         {"role": "user", "content": user_prompt},
     ]
     stream = await client.chat.completions.create(
-        model=GROK_MODEL,
+        model=GROQ_MODEL,
         messages=messages,
         stream=True,
         max_tokens=1500,
@@ -402,7 +398,7 @@ async def _stream_grok(user_prompt: str) -> AsyncGenerator:
 
 
 # ==============================================================================
-# 10. MAIN PUBLIC GENERATOR — Grok primary → Gemini failover
+# 10. MAIN PUBLIC GENERATOR — Groq primary → Gemini failover
 # ==============================================================================
 
 async def stream_chat_response(question: str, execution_id=None, ip: str = "unknown") -> AsyncGenerator:
@@ -415,9 +411,9 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
       data: [QUOTA] <msg>\\n\\n
 
     Flow:
-      1. Try Grok (xAI) as primary LLM.
+      1. Try Groq as primary LLM.
       2. On rate-limit / quota → log warning, fall through to Gemini seamlessly.
-      3. On any other Grok error → also fall through to Gemini.
+      3. On any other Groq error → also fall through to Gemini.
       4. If Gemini also fails → surface error to user.
     """
     if is_rate_limited(ip):
@@ -449,38 +445,37 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
     full_response = ""
     used_fallback = False
 
-    # ── PRIMARY: Grok ──────────────────────────────────────────────────────────
-    if _GROK_KEY:
+    # ── PRIMARY: Groq ─────────────────────────────────────────────────────────
+    if _GROQ_KEY:
         try:
-            logger.info(f"[ChatBot] Using Grok ({GROK_MODEL}) as primary LLM")
-            async for raw, escaped in _stream_grok(user_prompt):
+            logger.info(f"[ChatBot] Using Groq ({GROQ_MODEL}) as primary LLM")
+            async for raw, escaped in _stream_groq(user_prompt):
                 full_response += raw
                 yield f"data: {escaped}\n\n"
 
-        except OpenAIRateLimitError as rle:
+        except GroqRateLimitError as rle:
             logger.warning(
-                f"[ChatBot] ⚠️  Grok rate-limit / quota reached: {rle}. "
+                f"[ChatBot] ⚠️  Groq rate-limit / quota reached: {rle}. "
                 "Activating Gemini failover transparently..."
             )
             used_fallback = True
 
-        except Exception as grok_err:
-            err_str = str(grok_err)
+        except Exception as groq_err:
+            err_str = str(groq_err)
             if "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
                 logger.warning(
-                    f"[ChatBot] ⚠️  Grok quota signal detected ({err_str[:120]}). "
+                    f"[ChatBot] ⚠️  Groq quota signal detected ({err_str[:120]}). "
                     "Activating Gemini failover..."
                 )
-                used_fallback = True
             else:
                 logger.warning(
-                    f"[ChatBot] ⚠️  Grok error ({err_str[:120]}). "
+                    f"[ChatBot] ⚠️  Groq error ({err_str[:120]}). "
                     "Activating Gemini failover..."
                 )
-                used_fallback = True
+            used_fallback = True
     else:
-        # No Grok key configured — go straight to Gemini
-        logger.info("[ChatBot] GROK_API_KEY not set; using Gemini directly")
+        # No Groq key configured — go straight to Gemini
+        logger.info("[ChatBot] GROQ_API_KEY not set; using Gemini directly")
         used_fallback = True
 
     # ── FALLBACK: Gemini ───────────────────────────────────────────────────────
