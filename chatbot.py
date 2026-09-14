@@ -29,7 +29,7 @@ except ImportError:
 
 from google import genai
 from google.genai import types
-from groq import AsyncGroq, RateLimitError as GroqRateLimitError
+from groq import AsyncGroq, RateLimitError as GroqRateLimitError, BadRequestError as GroqBadRequestError
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +290,15 @@ async def build_context(question: str, intent: str, execution_id) -> str:
 
 # --- Groq via native groq SDK ---
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODELS = [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b",
+    "groq/compound",
+]
+_env_groq_models = os.environ.get("GROQ_MODELS")
+if _env_groq_models:
+    GROQ_MODELS = [m.strip() for m in _env_groq_models.split(",") if m.strip()]
+
 _groq_client: AsyncGroq | None = None
 
 
@@ -312,7 +320,7 @@ def get_model_display_name() -> str:
     Returns the configured model name directly from settings,
     stripping the technical 'models/' prefix if present, without hardcoded mappings.
     """
-    raw_model = (GROQ_MODEL or GEMINI_MODEL or "").strip()
+    raw_model = (GROQ_MODELS[0] if GROQ_MODELS else GEMINI_MODEL or "").strip()
     if not raw_model:
         return "Groq / Gemini"
     return raw_model.split("/")[-1]
@@ -351,41 +359,60 @@ async def _save_chat_history(execution_id: str, clean_q: str, full_response: str
 # ==============================================================================
 
 async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
-    """Inner async generator that streams Gemini tokens."""
+    """Inner async generator that streams Gemini tokens with automatic model resolution."""
     client = _get_gemini_client()
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_INSTRUCTION,
         max_output_tokens=1500,
         temperature=0.3,
     )
-    async for chunk in await client.aio.models.generate_content_stream(
-        model=GEMINI_MODEL,
-        contents=user_prompt,
-        config=config,
-    ):
-        if chunk.text:
-            text = chunk.text.replace("\n", "\\n")
-            yield chunk.text, text  # (raw, sse-escaped)
-        if chunk.candidates and len(chunk.candidates) > 0:
-            fr = chunk.candidates[0].finish_reason
-            if fr and "MAX_TOKENS" in str(fr):
-                trunc_msg = "\n\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\n\n"
-                yield trunc_msg, trunc_msg.replace("\n", "\\n")
+    models_to_try = [GEMINI_MODEL]
+    for fallback in ["models/gemini-3.6-flash", "models/gemini-2.5-flash", "gemini-flash-latest"]:
+        if fallback not in models_to_try:
+            models_to_try.append(fallback)
+
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            stream = await client.aio.models.generate_content_stream(
+                model=model_name,
+                contents=user_prompt,
+                config=config,
+            )
+            has_yielded = False
+            async for chunk in stream:
+                if chunk.text:
+                    has_yielded = True
+                    text = chunk.text.replace("\n", "\\n")
+                    yield chunk.text, text  # (raw, sse-escaped)
+                if chunk.candidates and len(chunk.candidates) > 0:
+                    fr = chunk.candidates[0].finish_reason
+                    if fr and "MAX_TOKENS" in str(fr):
+                        trunc_msg = "\n\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\n\n"
+                        yield trunc_msg, trunc_msg.replace("\n", "\\n")
+            if has_yielded:
+                return
+        except Exception as e:
+            last_error = e
+            if ("404" in str(e) or "not found" in str(e).lower()) and model_name != models_to_try[-1]:
+                logger.info(f"[ChatBot] Gemini model {model_name} unavailable; attempting {models_to_try[models_to_try.index(model_name)+1]}...")
+                continue
+            raise last_error
 
 
 # ==============================================================================
-# 9. GROQ STREAMING GENERATOR  (primary)
+# 9. GROQ STREAMING GENERATOR  (primary cascade)
 # ==============================================================================
 
-async def _stream_groq(user_prompt: str) -> AsyncGenerator:
-    """Inner async generator that streams Groq tokens via native groq SDK."""
+async def _stream_groq(model_id: str, user_prompt: str) -> AsyncGenerator:
+    """Inner async generator that streams Groq tokens for a given model via native groq SDK."""
     client = _get_groq_client()
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
         {"role": "user", "content": user_prompt},
     ]
     stream = await client.chat.completions.create(
-        model=GROQ_MODEL,
+        model=model_id,
         messages=messages,
         stream=True,
         max_tokens=1500,
@@ -398,7 +425,7 @@ async def _stream_groq(user_prompt: str) -> AsyncGenerator:
 
 
 # ==============================================================================
-# 10. MAIN PUBLIC GENERATOR — Groq primary → Gemini failover
+# 10. MAIN PUBLIC GENERATOR — Multi-Model Groq Cascade → Gemini failover
 # ==============================================================================
 
 async def stream_chat_response(question: str, execution_id=None, ip: str = "unknown") -> AsyncGenerator:
@@ -411,10 +438,10 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
       data: [QUOTA] <msg>\\n\\n
 
     Flow:
-      1. Try Groq as primary LLM.
-      2. On rate-limit / quota → log warning, fall through to Gemini seamlessly.
-      3. On any other Groq error → also fall through to Gemini.
-      4. If Gemini also fails → surface error to user.
+      1. Iterate through GROQ_MODELS cascade in order of preference.
+      2. If a model encounters 429 rate limit or 400 invalid request, catch and try next model.
+      3. If all Groq models are exhausted, fail over to Gemini 1.5 Flash outside the loop.
+      4. If Gemini also fails, surface error gracefully.
     """
     if is_rate_limited(ip):
         yield "data: Has alcanzado el limite de solicitudes (10/min). Espera un momento.\\n\\n"
@@ -445,33 +472,38 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
     full_response = ""
     used_fallback = False
 
-    # ── PRIMARY: Groq ─────────────────────────────────────────────────────────
+    # ── PRIMARY: Multi-Model Groq Cascade ──────────────────────────────────────
     if _GROQ_KEY:
-        try:
-            logger.info(f"[ChatBot] Using Groq ({GROQ_MODEL}) as primary LLM")
-            async for raw, escaped in _stream_groq(user_prompt):
-                full_response += raw
-                yield f"data: {escaped}\n\n"
+        groq_success = False
+        for model_id in GROQ_MODELS:
+            try:
+                logger.info(f"[ChatBot] Attempting Groq model: {model_id}")
+                model_response = ""
+                async for raw, escaped in _stream_groq(model_id, user_prompt):
+                    model_response += raw
+                    yield f"data: {escaped}\n\n"
 
-        except GroqRateLimitError as rle:
-            logger.warning(
-                f"[ChatBot] ⚠️  Groq rate-limit / quota reached: {rle}. "
-                "Activating Gemini failover transparently..."
-            )
-            used_fallback = True
+                if not model_response.strip():
+                    logger.warning(f"[WARNING] Groq model {model_id} failed. Trying next...")
+                    continue
 
-        except Exception as groq_err:
-            err_str = str(groq_err)
-            if "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
-                logger.warning(
-                    f"[ChatBot] ⚠️  Groq quota signal detected ({err_str[:120]}). "
-                    "Activating Gemini failover..."
-                )
-            else:
-                logger.warning(
-                    f"[ChatBot] ⚠️  Groq error ({err_str[:120]}). "
-                    "Activating Gemini failover..."
-                )
+                full_response = model_response
+                groq_success = True
+                break
+
+            except (GroqRateLimitError, GroqBadRequestError) as err:
+                logger.warning(f"[WARNING] Groq model {model_id} failed. Trying next...")
+                continue
+            except Exception as err:
+                err_str = str(err)
+                if "429" in err_str or "400" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
+                    logger.warning(f"[WARNING] Groq model {model_id} failed. Trying next...")
+                    continue
+                logger.warning(f"[WARNING] Groq model {model_id} failed. Trying next...")
+                continue
+
+        if not groq_success:
+            logger.warning("[WARNING] All Groq models exhausted. Failing over to Gemini 1.5 Flash...")
             used_fallback = True
     else:
         # No Groq key configured — go straight to Gemini
