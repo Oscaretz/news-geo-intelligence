@@ -606,11 +606,11 @@ async def _save_chat_history(execution_id: str, clean_q: str, full_response: str
 # 8. GEMINI STREAMING GENERATOR  (reusable as fallback)
 # ==============================================================================
 
-async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
+async def _stream_gemini(user_prompt: str, sys_instruction: str = SYSTEM_INSTRUCTION) -> AsyncGenerator:
     """Inner async generator that streams Gemini tokens with automatic model resolution."""
     client = _get_gemini_client()
     config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_INSTRUCTION,
+        system_instruction=sys_instruction,
         max_output_tokens=1500,
         temperature=0.3,
     )
@@ -652,11 +652,11 @@ async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
 # 9. GROQ STREAMING GENERATOR  (primary cascade)
 # ==============================================================================
 
-async def _stream_groq(model_id: str, user_prompt: str, chat_history: list = None) -> AsyncGenerator:
+async def _stream_groq(model_id: str, user_prompt: str, chat_history: list = None, sys_instruction: str = SYSTEM_INSTRUCTION) -> AsyncGenerator:
     """Inner async generator that streams Groq tokens for a given model via native groq SDK."""
     client = _get_groq_client()
     messages = [
-        {"role": "system", "content": SYSTEM_INSTRUCTION},
+        {"role": "system", "content": sys_instruction},
     ]
     if chat_history:
         for msg in chat_history[-6:]:
@@ -722,15 +722,22 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
     intent = await classify_intent(search_query)
     logger.info(f"[ChatBot] intent={intent} eid={execution_id} search_query='{search_query}' ip={ip}")
 
+    active_instruction = SYSTEM_INSTRUCTION
     try:
         if intent == "ANALYTICAL":
             sql_query = await generate_sql(search_query, execution_id)
             if sql_query:
                 logger.info(f"[ChatBot] Generated SQL: {sql_query}")
                 raw_results = await execute_sql(sql_query)
-                context = f"Resultados de la consulta SQL:\n{raw_results}"
+                context = f"Resultados de la consulta SQL:\n{str(raw_results)}"
             else:
                 context = "No se pudo generar una consulta SQL para esta pregunta."
+            
+            active_instruction = (
+                "You are a data assistant. You have just executed an SQL query. "
+                "Use the raw database results provided to answer the user's question directly and naturally. "
+                "Do not mention the SQL query itself."
+            )
         else:
             context = await build_context(search_query, intent, execution_id)
     except Exception as e:
@@ -761,7 +768,7 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
             try:
                 logger.info(f"[ChatBot] Attempting Groq model: {model_id}")
                 model_response = ""
-                async for raw, escaped in _stream_groq(model_id, user_prompt, chat_history):
+                async for raw, escaped in _stream_groq(model_id, user_prompt, chat_history, sys_instruction=active_instruction):
                     model_response += raw
                     yield f"data: {escaped}\n\n"
 
@@ -796,7 +803,7 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
     if used_fallback:
         try:
             logger.info(f"[ChatBot] Using Gemini ({GEMINI_MODEL}) as fallback LLM")
-            async for raw, escaped in _stream_gemini(user_prompt):
+            async for raw, escaped in _stream_gemini(user_prompt, sys_instruction=active_instruction):
                 full_response += raw
                 yield f"data: {escaped}\n\n"
 
