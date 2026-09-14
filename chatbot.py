@@ -128,7 +128,7 @@ _QUANT_RE = re.compile(
 top|mas frecuente|most frequent|rank|tendencia|\
 por estado|per state|por fuente|per source|\
 distribucion|distribution|timeline|linea de tiempo|\
-cuando|when|fecha|date|promedio|average)\b",
+cuando|when|fecha|date|promedio|average|ultimas?|last|scraper|palabras? clave|keywords?)\b",
     re.IGNORECASE,
 )
 
@@ -138,7 +138,7 @@ async def classify_intent(question: str) -> str:
         "Evaluate the following user question and classify its intent strictly as either 'SEMANTIC' or 'ANALYTICAL'.\n"
         "Return ONLY the word SEMANTIC or ANALYTICAL.\n\n"
         "- SEMANTIC: questions about the news content, meanings, specific events, or general summaries.\n"
-        "- ANALYTICAL: questions requiring counting, aggregations, metadata, database origins, system logs, grouping, or data distributions.\n\n"
+        "- ANALYTICAL: questions requiring counting, aggregations, metadata, database origins, system logs, scraper history, grouping, data distributions, or asking for lists of recent X items (e.g., 'last 10 keywords').\n\n"
         f"Question: {question}"
     )
     
