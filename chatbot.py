@@ -4,8 +4,9 @@
 #   1. Strict system-prompt guardrails (scope-locked to the scraped dataset)
 #   2. Intent classifier  -> quantitative (SQL) or qualitative (context-RAG)
 #   3. DB context builder -> runs safe parameterized queries, assembles evidence
-#   4. Gemini streaming   -> streams tokens via google-genai SDK
-#   5. Rate limiter       -> per-IP sliding window; graceful quota message
+#   4. Grok streaming     -> PRIMARY path via xAI OpenAI-compatible endpoint
+#   5. Gemini streaming   -> FALLBACK on Grok rate-limit / quota exhaustion
+#   6. Rate limiter       -> per-IP sliding window; graceful quota message
 #
 # All user input is sanitized before reaching the LLM.
 
@@ -28,6 +29,7 @@ except ImportError:
 
 from google import genai
 from google.genai import types
+from openai import AsyncOpenAI, RateLimitError as OpenAIRateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -99,11 +101,11 @@ def is_rate_limited(ip: str) -> bool:
 # ==============================================================================
 
 _INJECTION_RE = re.compile(
-    r"(ignore\s+(previous|all|your)\s+(instructions?|prompts?|rules?)|"
-    r"reveal\s+(system|your)\s+prompt|"
-    r"forget\s+(everything|all|instructions?)|"
-    r"<script[\s\S]*?>|</script>|javascript:|"
-    r"system\s*prompt|jailbreak|DAN\b|do\s+anything\s+now)",
+    r"(ignore\s+(previous|all|your)\s+(instructions?|prompts?|rules?)|\
+reveal\s+(system|your)\s+prompt|\
+forget\s+(everything|all|instructions?)|\
+<script[\s\S]*?>|</script>|javascript:|\
+system\s*prompt|jailbreak|DAN\b|do\s+anything\s+now)",
     re.IGNORECASE,
 )
 _MAX_LEN = 600
@@ -122,11 +124,11 @@ def sanitize_input(text: str) -> str:
 # ==============================================================================
 
 _QUANT_RE = re.compile(
-    r"\b(cuantos?|how many|total|count|cantidad|numero|"
-    r"top|mas frecuente|most frequent|rank|tendencia|"
-    r"por estado|per state|por fuente|per source|"
-    r"distribucion|distribution|timeline|linea de tiempo|"
-    r"cuando|when|fecha|date|promedio|average)\b",
+    r"\b(cuantos?|how many|total|count|cantidad|numero|\
+top|mas frecuente|most frequent|rank|tendencia|\
+por estado|per state|por fuente|per source|\
+distribucion|distribution|timeline|linea de tiempo|\
+cuando|when|fecha|date|promedio|average)\b",
     re.IGNORECASE,
 )
 
@@ -283,13 +285,30 @@ async def build_context(question: str, intent: str, execution_id) -> str:
 
 
 # ==============================================================================
-# 6. GEMINI STREAMING
+# 6. LLM CLIENTS — Grok (primary) & Gemini (fallback)
 # ==============================================================================
 
-_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-_gemini_client = None
+# --- Grok via xAI OpenAI-compatible endpoint ---
+_GROK_KEY = os.environ.get("GROK_API_KEY", "")
+GROK_MODEL = os.environ.get("GROK_MODEL", "grok-3-mini")
+_GROK_BASE_URL = "https://api.x.ai/v1"
+_grok_client: AsyncOpenAI | None = None
 
+
+def _get_grok_client() -> AsyncOpenAI:
+    global _grok_client
+    if _grok_client is None:
+        _grok_client = AsyncOpenAI(
+            api_key=_GROK_KEY,
+            base_url=_GROK_BASE_URL,
+        )
+    return _grok_client
+
+
+# --- Gemini via google-genai SDK ---
+_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-1.5-flash")
+_gemini_client = None
 
 
 def get_model_display_name() -> str:
@@ -297,20 +316,94 @@ def get_model_display_name() -> str:
     Returns the configured model name directly from settings,
     stripping the technical 'models/' prefix if present, without hardcoded mappings.
     """
-    raw_model = (GEMINI_MODEL or "").strip()
+    raw_model = (GROK_MODEL or GEMINI_MODEL or "").strip()
     if not raw_model:
-        return "Gemini"
-
-    # Strip provider prefix if present (e.g. models/gemini-3.6-flash -> gemini-3.6-flash)
+        return "Grok / Gemini"
     return raw_model.split("/")[-1]
 
 
-def _get_client():
+def _get_gemini_client():
     global _gemini_client
     if _gemini_client is None:
         _gemini_client = genai.Client(api_key=_GEMINI_KEY)
     return _gemini_client
 
+
+# ==============================================================================
+# 7. HELPER — save encrypted chat turn to DB
+# ==============================================================================
+
+async def _save_chat_history(execution_id: str, clean_q: str, full_response: str):
+    try:
+        enc_prompt = encrypt_data(clean_q)
+        enc_response = encrypt_data(full_response)
+        db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+        if '@postgres:' in db_url:
+            db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+        conn = await asyncpg.connect(db_url)
+        await conn.execute(
+            "INSERT INTO chat_history (execution_id, role, encrypted_content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)",
+            execution_id, enc_prompt, enc_response
+        )
+        await conn.close()
+    except Exception as db_err:
+        logger.error(f"[ChatBot] Error saving chat history: {db_err}")
+
+
+# ==============================================================================
+# 8. GEMINI STREAMING GENERATOR  (reusable as fallback)
+# ==============================================================================
+
+async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
+    """Inner async generator that streams Gemini tokens."""
+    client = _get_gemini_client()
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_INSTRUCTION,
+        max_output_tokens=1500,
+        temperature=0.3,
+    )
+    async for chunk in await client.aio.models.generate_content_stream(
+        model=GEMINI_MODEL,
+        contents=user_prompt,
+        config=config,
+    ):
+        if chunk.text:
+            text = chunk.text.replace("\n", "\\n")
+            yield chunk.text, text  # (raw, sse-escaped)
+        if chunk.candidates and len(chunk.candidates) > 0:
+            fr = chunk.candidates[0].finish_reason
+            if fr and "MAX_TOKENS" in str(fr):
+                trunc_msg = "\n\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\n\n"
+                yield trunc_msg, trunc_msg.replace("\n", "\\n")
+
+
+# ==============================================================================
+# 9. GROK STREAMING GENERATOR  (primary)
+# ==============================================================================
+
+async def _stream_grok(user_prompt: str) -> AsyncGenerator:
+    """Inner async generator that streams Grok tokens via xAI OpenAI-compatible API."""
+    client = _get_grok_client()
+    messages = [
+        {"role": "system", "content": SYSTEM_INSTRUCTION},
+        {"role": "user", "content": user_prompt},
+    ]
+    stream = await client.chat.completions.create(
+        model=GROK_MODEL,
+        messages=messages,
+        stream=True,
+        max_tokens=1500,
+        temperature=0.3,
+    )
+    async for chunk in stream:
+        delta = chunk.choices[0].delta.content if chunk.choices else None
+        if delta:
+            yield delta, delta.replace("\n", "\\n")  # (raw, sse-escaped)
+
+
+# ==============================================================================
+# 10. MAIN PUBLIC GENERATOR — Grok primary → Gemini failover
+# ==============================================================================
 
 async def stream_chat_response(question: str, execution_id=None, ip: str = "unknown") -> AsyncGenerator:
     """
@@ -320,6 +413,12 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
       data: [ERROR] <msg>\\n\\n
       data: [RATE_LIMITED] <msg>\\n\\n
       data: [QUOTA] <msg>\\n\\n
+
+    Flow:
+      1. Try Grok (xAI) as primary LLM.
+      2. On rate-limit / quota → log warning, fall through to Gemini seamlessly.
+      3. On any other Grok error → also fall through to Gemini.
+      4. If Gemini also fails → surface error to user.
     """
     if is_rate_limited(ip):
         yield "data: Has alcanzado el limite de solicitudes (10/min). Espera un momento.\\n\\n"
@@ -347,80 +446,68 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
         f"PREGUNTA DEL USUARIO:\n{clean_q}"
     )
 
-    try:
-        client = _get_client()
-        config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            max_output_tokens=1500,
-            temperature=0.3,
-        )
+    full_response = ""
+    used_fallback = False
 
-        full_response = ''
-        async for chunk in await client.aio.models.generate_content_stream(
-            model=GEMINI_MODEL,
-            contents=user_prompt,
-            config=config,
-        ):
-            if chunk.text:
-                full_response += chunk.text
-                # Escape newlines for SSE single-line data field
-                text = chunk.text.replace("\n", "\\n")
-                yield f"data: {text}\n\n"
-                
-            # Detect if it was cut off due to token limits
-            if chunk.candidates and len(chunk.candidates) > 0:
-                fr = chunk.candidates[0].finish_reason
-                if fr and "MAX_TOKENS" in str(fr):
-                    yield "data: \\n\\n*[Aviso: La respuesta se ha cortado porque superó el límite de longitud del modelo]*\\n\\n\n\n"
-
-        # Save encrypted chat history to DB
+    # ── PRIMARY: Grok ──────────────────────────────────────────────────────────
+    if _GROK_KEY:
         try:
-            if execution_id:
-                enc_prompt = encrypt_data(clean_q)
-                enc_response = encrypt_data(full_response)
-                
-                db_url = os.environ.get('DATABASE_URL')
-                if db_url and '@postgres:' in db_url:
-                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
-                elif not db_url:
-                    db_url = "postgresql://admin:admin123@localhost:5433/history_db"
-                
-                conn = await asyncpg.connect(db_url)
-                await conn.execute(
-                    "INSERT INTO chat_history (execution_id, role, encrypted_content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)",
-                    execution_id, enc_prompt, enc_response
+            logger.info(f"[ChatBot] Using Grok ({GROK_MODEL}) as primary LLM")
+            async for raw, escaped in _stream_grok(user_prompt):
+                full_response += raw
+                yield f"data: {escaped}\n\n"
+
+        except OpenAIRateLimitError as rle:
+            logger.warning(
+                f"[ChatBot] ⚠️  Grok rate-limit / quota reached: {rle}. "
+                "Activating Gemini failover transparently..."
+            )
+            used_fallback = True
+
+        except Exception as grok_err:
+            err_str = str(grok_err)
+            if "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
+                logger.warning(
+                    f"[ChatBot] ⚠️  Grok quota signal detected ({err_str[:120]}). "
+                    "Activating Gemini failover..."
                 )
-                await conn.close()
-        except Exception as db_err:
-            logger.error(f"[ChatBot] Error saving chat history: {db_err}")
+                used_fallback = True
+            else:
+                logger.warning(
+                    f"[ChatBot] ⚠️  Grok error ({err_str[:120]}). "
+                    "Activating Gemini failover..."
+                )
+                used_fallback = True
+    else:
+        # No Grok key configured — go straight to Gemini
+        logger.info("[ChatBot] GROK_API_KEY not set; using Gemini directly")
+        used_fallback = True
 
-        yield "data: [DONE]\n\n"
-
-
-    except Exception as e:
-        err = str(e)
-        logger.error(f"[ChatBot] Gemini error: {err}")
-        if "429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower():
-            full_response += "\n[QUOTA] Error"
-            yield "data: [QUOTA] El servicio de IA ha alcanzado su cuota. Intenta en unos minutos.\n\n"
-        else:
-            full_response += f"\n[ERROR] {err[:80]}"
-            yield f"data: [ERROR] Se interrumpi? la conexi?n con el modelo (Error: {err[:80]}). Intenta de nuevo.\n\n"
-            
+    # ── FALLBACK: Gemini ───────────────────────────────────────────────────────
+    if used_fallback:
         try:
-            if execution_id:
-                enc_prompt = encrypt_data(clean_q)
-                enc_response = encrypt_data(full_response)
-                db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
-                if '@postgres:' in db_url:
-                    db_url = db_url.replace('@postgres:5432', '@localhost:5433')
-                conn = await asyncpg.connect(db_url)
-                await conn.execute(
-                    "INSERT INTO chat_history (execution_id, role, encrypted_content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)",
-                    execution_id, enc_prompt, enc_response
-                )
-                await conn.close()
-        except Exception as db_err:
-            pass
+            logger.info(f"[ChatBot] Using Gemini ({GEMINI_MODEL}) as fallback LLM")
+            async for raw, escaped in _stream_gemini(user_prompt):
+                full_response += raw
+                yield f"data: {escaped}\n\n"
 
-        yield "data: [DONE]\n\n"
+        except Exception as gemini_err:
+            err = str(gemini_err)
+            logger.error(f"[ChatBot] Gemini fallback error: {err}")
+            if "429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower():
+                full_response += "\n[QUOTA] Error"
+                yield "data: [QUOTA] Todos los servicios de IA han alcanzado su cuota. Intenta en unos minutos.\\n\\n"
+            else:
+                full_response += f"\n[ERROR] {err[:80]}"
+                yield f"data: [ERROR] Se interrumpió la conexión con el modelo (Error: {err[:80]}). Intenta de nuevo.\\n\\n"
+
+            if execution_id:
+                await _save_chat_history(execution_id, clean_q, full_response)
+            yield "data: [DONE]\n\n"
+            return
+
+    # ── Persist encrypted history ──────────────────────────────────────────────
+    if execution_id:
+        await _save_chat_history(execution_id, clean_q, full_response)
+
+    yield "data: [DONE]\n\n"
