@@ -1187,22 +1187,34 @@ function switchTab(tabId) {
     if (tabId === 'analytics') {
         // Populate toolbar dropdowns with current session data
         if (typeof populateAnalyticsFilters === 'function') populateAnalyticsFilters();
-        // Ensure Leaflet map resizes correctly when becoming visible
-        if (typeof initMap === 'function') initMap(true);
-        if (typeof loadMapForCountry === 'function' && typeof geoJsonData !== 'undefined' && !geoJsonData) {
-            const country = document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx';
-            loadMapForCountry(country);
-        }
+        
+        // Use a short delay to allow the browser to paint the un-hidden container
         setTimeout(() => {
-            if (typeof window.invalidateMapSize === 'function') {
-                window.invalidateMapSize();
-            } else if (typeof map !== 'undefined' && map !== null) {
-                map.invalidateSize();
+            if (typeof initMap === 'function') initMap(true);
+            
+            if (typeof loadMapForCountry === 'function' && typeof geoJsonData !== 'undefined' && !geoJsonData) {
+                const country = document.querySelector('input[name="countryToggle"]:checked')?.value || 'mx';
+                loadMapForCountry(country).then(() => {
+                    if (typeof window.invalidateMapSize === 'function') {
+                        window.invalidateMapSize();
+                    } else if (typeof map !== 'undefined' && map !== null) {
+                        map.invalidateSize();
+                    }
+                    if (typeof renderChoropleth === 'function') {
+                        renderChoropleth();
+                    }
+                }).catch(err => console.error("Error loading map:", err));
+            } else {
+                if (typeof window.invalidateMapSize === 'function') {
+                    window.invalidateMapSize();
+                } else if (typeof map !== 'undefined' && map !== null) {
+                    map.invalidateSize();
+                }
+                if (typeof renderChoropleth === 'function') {
+                    renderChoropleth();
+                }
             }
-            if (typeof renderChoropleth === 'function') {
-                renderChoropleth();
-            }
-        }, 120);
+        }, 150);
     }
 }
 

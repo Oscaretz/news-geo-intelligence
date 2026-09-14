@@ -10,6 +10,17 @@ function isValidCenter(center) {
     return Array.isArray(center) && center.length >= 2 && !isNaN(center[0]) && !isNaN(center[1]);
 }
 
+
+// Use a ResizeObserver to ensure Leaflet recalculates bounds when the map container becomes visible or changes size
+const mapObserver = new ResizeObserver(() => {
+    if (map) {
+        map.invalidateSize();
+        if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
+        }
+    }
+});
+
 function initMap(force = false) {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
@@ -29,10 +40,13 @@ function initMap(force = false) {
             maxZoom: 16
         }).addTo(map);
         
+        mapObserver.observe(mapContainer);
+        
         if (geoJsonData && !geojsonLayer) {
             createGeoJsonLayer();
         }
     }
+
     
     // Always synchronously invalidate size if forced to ensure Leaflet has dimensions before any flyTo
     if (force) {
@@ -242,13 +256,15 @@ function renderChoropleth() {
 
 window.invalidateMapSize = function() {
     if (map) {
-        map.invalidateSize();
-        if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
-            map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
-        }
-        if (geojsonLayer) {
-            geojsonLayer.setStyle(styleFeature);
-        }
+        setTimeout(() => {
+            map.invalidateSize();
+            if (currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
+                map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
+            }
+            if (geojsonLayer) {
+                geojsonLayer.setStyle(styleFeature);
+            }
+        }, 200); // Allow browser time to reflow layout
     }
 };
 
