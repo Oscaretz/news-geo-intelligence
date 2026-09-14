@@ -376,10 +376,22 @@ async def _quant_context(question, execution_id):
 
 async def _qual_context(question, execution_id):
     lines = []
+    # Common conversational and question filler words (>= 4 chars) in Spanish and English
     stopwords = {
-        "cual", "cuales", "cuantos", "como", "que", "donde", "cuando", "sobre", 
-        "articulo", "noticias", "noticia", "that", "this", "what", "which", 
-        "where", "when", "about", "para", "con", "los", "las", "del", "the", "are",
+        # Spanish filler / question words
+        "cual", "cuales", "cuanto", "cuantos", "cuanta", "cuantas",
+        "como", "donde", "cuando", "sobre", "para", "pero", "porque",
+        "este", "esta", "estos", "estas", "aquel", "aquella",
+        "todo", "toda", "todos", "todas", "otro", "otra", "otros", "otras",
+        "hacer", "hace", "tiene", "tienen", "haber", "habia",
+        "dime", "dame", "muestra", "muestrame", "buscar", "busca",
+        "noticia", "noticias", "articulo", "articulos", "informacion",
+        # English filler / question words
+        "what", "which", "where", "when", "about", "that", "this", "these", "those",
+        "from", "with", "have", "been", "were", "will", "would", "could", "should",
+        "many", "much", "more", "most", "some", "such", "than", "then",
+        "tell", "show", "find", "give", "look", "know",
+        "news", "article", "articles", "information", "latest", "recent",
     }
     words = re.findall(r"\b[a-zA-ZáéíóúÁÉÍÓÚñÑ]{4,}\b", question.lower())
     keywords = [w for w in words if w not in stopwords][:5]
