@@ -264,7 +264,9 @@ async def execute_sql(sql: str) -> str:
     if not sql or not sql.lower().strip().startswith("select"):
         return "Error: No valid SELECT query generated."
         
-    db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        return "Error: DATABASE_URL no está configurada."
     if '@postgres:' in db_url and not os.path.exists('/.dockerenv'):
         db_url = db_url.replace('@postgres:5432', '@localhost:5433')
         
@@ -560,7 +562,9 @@ async def _load_recent_chat_history(execution_id: str, limit: int = 6) -> list[d
     if not execution_id:
         return []
     try:
-        db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            raise ValueError("DATABASE_URL no está configurada")
         if '@postgres:' in db_url and not os.path.exists('/.dockerenv'):
             db_url = db_url.replace('@postgres:5432', '@localhost:5433')
         conn = await asyncpg.connect(db_url)
@@ -589,7 +593,9 @@ async def _save_chat_history(execution_id: str, clean_q: str, full_response: str
     try:
         enc_prompt = encrypt_data(clean_q)
         enc_response = encrypt_data(full_response)
-        db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            raise ValueError("DATABASE_URL no está configurada")
         if '@postgres:' in db_url and not os.path.exists('/.dockerenv'):
             db_url = db_url.replace('@postgres:5432', '@localhost:5433')
         conn = await asyncpg.connect(db_url)
