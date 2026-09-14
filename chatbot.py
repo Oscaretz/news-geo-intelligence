@@ -333,6 +333,98 @@ def _get_gemini_client():
     return _gemini_client
 
 
+# --- Groq fast models for RAG Query Rewriting ---
+GROQ_REWRITE_MODELS = [
+    "groq/compound-mini",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
+]
+
+REWRITE_SYSTEM_PROMPT = (
+    "Given the chat history and the latest user question, rewrite the user question into a standalone query that can be understood without the history. "
+    "Do not answer the question, just return the rewritten query. If the question is already standalone, return it exactly as is."
+)
+
+
+async def rewrite_query(user_message: str, chat_history: list = None) -> str:
+    """
+    Rewrites the user question into a standalone query that resolves pronouns and references
+    using a fast Groq model before executing database / vector retrieval.
+    """
+    if not user_message or not user_message.strip():
+        return user_message
+
+    if not chat_history:
+        return user_message
+
+    history_lines = []
+    for msg in chat_history[-6:]:
+        role = msg.get("role", "user")
+        content = (msg.get("content") or "").strip()
+        if content:
+            history_lines.append(f"{role}: {content}")
+
+    if not history_lines:
+        return user_message
+
+    history_text = "\n".join(history_lines)
+    prompt = f"Chat History:\n{history_text}\n\nLatest Question: {user_message}"
+
+    if not _GROQ_KEY:
+        return user_message
+
+    client = _get_groq_client()
+    for model_id in GROQ_REWRITE_MODELS:
+        try:
+            res = await client.chat.completions.create(
+                model=model_id,
+                messages=[
+                    {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0,
+                max_tokens=150,
+            )
+            rewritten = res.choices[0].message.content if res.choices else None
+            if rewritten and rewritten.strip():
+                clean_rewritten = rewritten.strip().strip('"').strip("'")
+                logger.info(f"[ChatBot] Query rewritten ({model_id}): '{user_message}' -> '{clean_rewritten}'")
+                return clean_rewritten
+        except Exception as e:
+            logger.warning(f"[ChatBot] Fast Groq model {model_id} failed for query rewriting: {e}. Trying next...")
+            continue
+
+    logger.warning("[ChatBot] Query rewriting fallback: using original question.")
+    return user_message
+
+
+async def _load_recent_chat_history(execution_id: str, limit: int = 6) -> list[dict]:
+    """Fetch recent decrypted chat history for conversational context from PostgreSQL."""
+    if not execution_id:
+        return []
+    try:
+        db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+        if '@postgres:' in db_url:
+            db_url = db_url.replace('@postgres:5432', '@localhost:5433')
+        conn = await asyncpg.connect(db_url)
+        rows = await conn.fetch(
+            "SELECT role, encrypted_content FROM chat_history WHERE execution_id = $1 ORDER BY timestamp DESC LIMIT $2",
+            execution_id, limit
+        )
+        await conn.close()
+        history = []
+        for r in reversed(rows):
+            history.append({
+                "role": r['role'],
+                "content": decrypt_data(r['encrypted_content'])
+            })
+        return history
+    except Exception as e:
+        logger.warning(f"[ChatBot] Could not load chat history from DB: {e}")
+        return []
+
+
 # ==============================================================================
 # 7. HELPER — save encrypted chat turn to DB
 # ==============================================================================
@@ -404,13 +496,20 @@ async def _stream_gemini(user_prompt: str) -> AsyncGenerator:
 # 9. GROQ STREAMING GENERATOR  (primary cascade)
 # ==============================================================================
 
-async def _stream_groq(model_id: str, user_prompt: str) -> AsyncGenerator:
+async def _stream_groq(model_id: str, user_prompt: str, chat_history: list = None) -> AsyncGenerator:
     """Inner async generator that streams Groq tokens for a given model via native groq SDK."""
     client = _get_groq_client()
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
-        {"role": "user", "content": user_prompt},
     ]
+    if chat_history:
+        for msg in chat_history[-6:]:
+            role = msg.get("role")
+            content = (msg.get("content") or "").strip()
+            if role in ["user", "assistant"] and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_prompt})
+
     stream = await client.chat.completions.create(
         model=model_id,
         messages=messages,
@@ -428,7 +527,7 @@ async def _stream_groq(model_id: str, user_prompt: str) -> AsyncGenerator:
 # 10. MAIN PUBLIC GENERATOR — Multi-Model Groq Cascade → Gemini failover
 # ==============================================================================
 
-async def stream_chat_response(question: str, execution_id=None, ip: str = "unknown") -> AsyncGenerator:
+async def stream_chat_response(question: str, execution_id=None, ip: str = "unknown", chat_history: list = None) -> AsyncGenerator:
     """
     Async generator yielding SSE-formatted strings:
       data: <token>\\n\\n
@@ -438,10 +537,11 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
       data: [QUOTA] <msg>\\n\\n
 
     Flow:
-      1. Iterate through GROQ_MODELS cascade in order of preference.
-      2. If a model encounters 429 rate limit or 400 invalid request, catch and try next model.
-      3. If all Groq models are exhausted, fail over to Gemini 1.5 Flash outside the loop.
-      4. If Gemini also fails, surface error gracefully.
+      1. Resolve conversational history (from parameter or decrypted DB).
+      2. Rewrite question into a standalone query via fast Groq model before DB search.
+      3. Classify intent and retrieve context documents using rewritten query.
+      4. Pass retrieved documents, original chat history, and original user message to LLM.
+      5. Stream via primary Groq cascade, failing over to Gemini if all Groq models exhausted.
     """
     if is_rate_limited(ip):
         yield "data: Has alcanzado el limite de solicitudes (10/min). Espera un momento.\\n\\n"
@@ -454,18 +554,35 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
         yield "data: [DONE]\\n\\n"
         return
 
-    intent = classify_intent(clean_q)
-    logger.info(f"[ChatBot] intent={intent} eid={execution_id} ip={ip}")
+    # 1. Resolve conversational memory / chat history
+    if chat_history is None and execution_id:
+        chat_history = await _load_recent_chat_history(execution_id)
+    chat_history = chat_history or []
+
+    # 2. RAG Query Rewriting BEFORE database retrieval
+    search_query = await rewrite_query(clean_q, chat_history)
+
+    # 3. Classify intent and retrieve context using rewritten query
+    intent = classify_intent(search_query)
+    logger.info(f"[ChatBot] intent={intent} eid={execution_id} search_query='{search_query}' ip={ip}")
 
     try:
-        context = await build_context(clean_q, intent, execution_id)
+        context = await build_context(search_query, intent, execution_id)
     except Exception as e:
         logger.error(f"[ChatBot] DB context error: {e}")
         context = "No fue posible recuperar datos del dataset en este momento."
 
+    # 4. Final generation prompt containing retrieved documents, original chat history, and original user message
+    history_section = ""
+    if chat_history:
+        recent_turns = [f"- {m.get('role', 'user')}: {m.get('content', '')}" for m in chat_history[-4:] if m.get('content')]
+        if recent_turns:
+            history_section = "HISTORIAL RECIENTE DE LA CONVERSACIÓN:\n" + "\n".join(recent_turns) + "\n\n"
+
     user_prompt = (
         f"CONTEXTO DEL DATASET (tipo de consulta: {intent}):\n"
         f"{context}\n\n"
+        f"{history_section}"
         f"PREGUNTA DEL USUARIO:\n{clean_q}"
     )
 
@@ -479,7 +596,7 @@ async def stream_chat_response(question: str, execution_id=None, ip: str = "unkn
             try:
                 logger.info(f"[ChatBot] Attempting Groq model: {model_id}")
                 model_response = ""
-                async for raw, escaped in _stream_groq(model_id, user_prompt):
+                async for raw, escaped in _stream_groq(model_id, user_prompt, chat_history):
                     model_response += raw
                     yield f"data: {escaped}\n\n"
 

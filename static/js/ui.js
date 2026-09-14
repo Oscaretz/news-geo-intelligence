@@ -2453,6 +2453,22 @@ async function sendChatMessage() {
     const text = inputEl.value.trim();
     if (!text) return;
     
+    // Gather previous chat messages for conversational memory
+    const historyPayload = [];
+    document.querySelectorAll('#chat-messages > div').forEach(div => {
+        const isUser = div.classList.contains('justify-end');
+        const textEl = div.querySelector('.chat-markdown') || div.querySelector('.rounded-2xl') || div.querySelector('.bg-white');
+        if (textEl) {
+            const txt = textEl.innerText.trim();
+            if (txt && !txt.includes('Analizando consulta...') && !txt.includes('Hola, soy tu asistente') && !txt.includes('Chat limpiado')) {
+                historyPayload.push({
+                    role: isUser ? 'user' : 'assistant',
+                    content: txt
+                });
+            }
+        }
+    });
+
     // UI updates
     inputEl.value = '';
     inputEl.style.height = 'auto'; // reset resize
@@ -2474,7 +2490,7 @@ async function sendChatMessage() {
         const response = await fetch('/api/chat/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, execution_id: execId })
+            body: JSON.stringify({ message: text, execution_id: execId, history: historyPayload.slice(-6) })
         });
         
         if (!response.ok) {

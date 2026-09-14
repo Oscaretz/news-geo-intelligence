@@ -705,6 +705,7 @@ def chat_stream():
     data = sanitize_payload(raw_data)
     message = (data.get("message") or "").strip()
     execution_id = data.get("execution_id") or None
+    chat_history = raw_data.get("chat_history") or raw_data.get("history") or None
 
     if not message:
         return jsonify({"error": "message is required"}), 400
@@ -717,7 +718,7 @@ def chat_stream():
         asyncio.set_event_loop(loop)
         try:
             async def run():
-                async for chunk in stream_chat_response(message, execution_id=execution_id, ip=ip):
+                async for chunk in stream_chat_response(message, execution_id=execution_id, ip=ip, chat_history=chat_history):
                     yield chunk
             gen = run()
             while True:
