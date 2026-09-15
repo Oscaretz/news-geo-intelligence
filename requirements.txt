@@ -23,3 +23,4 @@ dagster-webserver
 Flask-Talisman
 cryptography
 groq
+dagster-postgres

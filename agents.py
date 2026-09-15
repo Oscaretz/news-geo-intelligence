@@ -258,8 +258,8 @@ class SiteScraperAgent:
 
 class NLPAgent:
     def __init__(self):
-        default_ollama = "http://host.docker.internal:11434/api/generate" if os.path.exists("/.dockerenv") else "http://localhost:11434/api/generate"
-        self.ollama_url = os.environ.get("OLLAMA_URL", default_ollama)
+        default_ollama = "http://localhost:11434/api/generate"
+        self.ollama_url = os.environ.get("OLLAMA_API_URL", os.environ.get("OLLAMA_URL", default_ollama))
         self.model_name = os.environ.get("OLLAMA_MODEL", "llama3.1")
         self.compressor = None
         self._init_compressor()
@@ -484,7 +484,9 @@ class OrchestratorAgent:
 
     async def init_history_db(self):
         try:
-            db_url = os.environ.get('DATABASE_URL') or "postgresql://admin:admin123@localhost:5433/history_db"
+            db_url = os.environ.get('DATABASE_URL')
+            if not db_url:
+                raise ValueError("DATABASE_URL no está configurada")
             try:
                 self.history_db = await asyncpg.create_pool(db_url)
             except Exception as pool_err:
@@ -532,10 +534,6 @@ class OrchestratorAgent:
                     )
                 """)
                 await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url TEXT;")
-                await conn.execute("CREATE OR REPLACE VIEW fact_news_metrics AS SELECT * FROM articles;")
-                await conn.execute("CREATE OR REPLACE VIEW dim_date AS SELECT DISTINCT date FROM articles;")
-                await conn.execute("CREATE OR REPLACE VIEW dim_source AS SELECT DISTINCT source FROM articles;")
-                await conn.execute("CREATE OR REPLACE VIEW scraper_logs AS SELECT * FROM search_executions;")
         except Exception as e:
             logger.error(f"⚠️ [Postgres Init Error]: {e}")
             raise
@@ -744,7 +742,7 @@ class OrchestratorAgent:
         
         # Load articles for this execution that haven't been geocoded yet
         async with self.history_db.acquire() as conn:
-            rows = await conn.fetch("SELECT article_id, url, title, date, source, image_url FROM articles WHERE execution_id = $1 AND geodata IS NULL", execution_id)
+            rows = await conn.fetch("SELECT article_id, execution_id, url, title, date, source, image_url FROM articles WHERE execution_id = $1 AND geodata IS NULL", execution_id)
             
         articles = [dict(r) for r in rows]
         total_target = len(articles)
@@ -771,61 +769,63 @@ class OrchestratorAgent:
         }
         
         try:
-            for a in articles:
-                short_title = a['title'][:30] if a['title'] else ""
-                elapsed = time.time() - start_time
+            from utils.llm_batch import process_articles_batch
+            batch_size = 5
+            for i in range(0, len(articles), batch_size):
+                batch = articles[i:i+batch_size]
                 
+                # Map scraped_text to content_snippet for the batch processor
+                for a in batch:
+                    a['content_snippet'] = a.get('scraped_text', '')
+                
+                elapsed = time.time() - start_time
                 yield {
                     "type": "update",
-                    "message": f"Analizando el artículo: {short_title}...",
+                    "message": f"Analizando lote de {len(batch)} artículos...",
                     "phase": "inference",
                     "current": current,
                     "target": total_target,
                     "discarded": discarded,
                     "elapsed_time": round(elapsed, 2),
-                    "text": f"Inference for {short_title}"
+                    "text": f"Inference for batch starting at {i}"
                 }
                 
                 try:
-                    async with self.nlp_semaphore:
-                        states = await self.nlp.extract_states(None, a.get("scraped_text", ""), title=a.get("title", ""), country=country)
+                    await process_articles_batch(self.history_db, batch)
                     
-                    states_list = states if isinstance(states, list) else []
-                    
-                    # Update postgres
-                    async with self.history_db.acquire() as conn:
-                        await conn.execute("UPDATE articles SET geodata = $1::jsonb WHERE article_id = $2", json.dumps(states_list), a['article_id'])
+                    for a in batch:
+                        # Set empty states for backward compatibility with UI if needed
+                        a["states"] = []
                         
-                    a["states"] = states_list
-                    current += 1
-                    
-                    yield {
-                        "type": "article",
-                        "data": a,
-                        "phase": "inference",
-                        "current": current,
-                        "target": total_target,
-                        "discarded": discarded,
-                        "elapsed_time": round(time.time() - start_time, 2),
-                        "text": f"Yielded article {short_title}"
-                    }
+                        current += 1
+                        yield {
+                            "type": "article",
+                            "data": a,
+                            "phase": "inference",
+                            "current": current,
+                            "target": total_target,
+                            "discarded": discarded,
+                            "elapsed_time": round(time.time() - start_time, 2),
+                            "text": f"Yielded article from batch"
+                        }
                 except Exception as e:
                     import logging
-                    logging.error(f"❌ [map_stream offline process_task Error] '{short_title}...': {e}")
-                    async with self.history_db.acquire() as conn:
-                        await conn.execute("UPDATE articles SET geodata = $1::jsonb WHERE article_id = $2", json.dumps([]), a['article_id'])
-                    current += 1
-                    yield {
-                        "type": "article",
-                        "data": a,
-                        "phase": "inference",
-                        "current": current,
-                        "target": total_target,
-                        "discarded": discarded,
-                        "elapsed_time": round(time.time() - start_time, 2),
-                        "text": f"Yielded article {short_title} with fallback"
-                    }
-                    
+                    logging.error(f"❌ [map_stream offline batch Error]: {e}")
+                    for a in batch:
+                        async with self.history_db.acquire() as conn:
+                            await conn.execute("UPDATE articles SET geodata = $1::jsonb WHERE article_id = $2", json.dumps([]), a['article_id'])
+                        current += 1
+                        yield {
+                            "type": "article",
+                            "data": a,
+                            "phase": "inference",
+                            "current": current,
+                            "target": total_target,
+                            "discarded": discarded,
+                            "elapsed_time": round(time.time() - start_time, 2),
+                            "text": f"Yielded article with fallback from batch"
+                        }
+                        
             async with self.history_db.acquire() as conn:
                 await conn.execute("UPDATE search_executions SET status = 'COMPLETED', end_time = CURRENT_TIMESTAMP WHERE execution_id = $1", execution_id)
                 

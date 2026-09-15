@@ -3,6 +3,7 @@ version: '3.8'
 services:
   web:
     build: .
+    user: root
     ports:
       - "127.0.0.1:5000:5000"
     volumes:
@@ -12,7 +13,10 @@ services:
     environment:
       - FLASK_DEBUG=${FLASK_DEBUG:-0}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
 
   postgres:
     image: postgres:15-alpine
@@ -26,6 +30,58 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dagster-webserver:
+    build: .
+    image: scrapingnews-dagster-img
+    user: root
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - .:/app
+      - ./dagster.yaml:/dagster_home/dagster.yaml:ro
+      - dagster_home_vol:/dagster_home
+    env_file:
+      - .env
+    environment:
+      - DAGSTER_HOME=/dagster_home
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w workspace.yaml
+
+  dagster-daemon:
+    build: .
+    image: scrapingnews-dagster-img
+    user: root
+    volumes:
+      - .:/app
+      - ./dagster.yaml:/dagster_home/dagster.yaml:ro
+      - dagster_home_vol:/dagster_home
+    env_file:
+      - .env
+    environment:
+      - DAGSTER_HOME=/dagster_home
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    command: dagster-daemon run -w workspace.yaml
 
 volumes:
   postgres_data:
+  dagster_home_vol:
+
+networks:
+  app_network:
+    driver: bridge
