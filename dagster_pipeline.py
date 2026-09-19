@@ -46,11 +46,11 @@ def run_search_pipeline(context, config: SearchConfig):
         await orchestrator.init_cache()
         try:
             update_progress(run_id, 10, "Fetching discovery (10%)...")
-            # Fase 1: Scraping, resolución de texto completo y pre-guardado en cache
+            # Phase 1: Scraping, full-text resolution, and pre-cache saving
             execution_id, _ = await orchestrator.fetch_discovery(search_params)
             
             update_progress(run_id, 40, "Extracting articles (40%)...")
-            # Fase 2: Inferencia LLM, geolocalización y guardado en PostgreSQL (History)
+            # Phase 2: LLM inference, geolocation, and PostgreSQL persistence (History)
             
             async for event in orchestrator.map_stream(execution_id):
                 current = event.get("current", 0)
@@ -72,11 +72,11 @@ def search_job():
     run_search_pipeline()
 
 # ============================================
-# Automatización (Schedules)
+# Schedules & Automation
 # ============================================
 from dagster import ScheduleDefinition, Definitions
 
-# Ejemplo de horario: Corre todos los días a las 8:00 AM
+# Example Schedule: Runs daily at 8:00 AM
 daily_mexico_news_schedule = ScheduleDefinition(
     job=search_job,
     cron_schedule="0 8 * * *",

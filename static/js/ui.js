@@ -55,7 +55,7 @@ let totalArticles = 0;
 let uniqueStates = new Set();
 let stateFrequency = {};
 let sourceFrequency = {};
-let currentFilter = null; // Variable para controlar el filtro de BI
+let currentFilter = null; // Variable controlling the cross-filtering BI logic
 
 function handleKeyPress(e) {
     if (e.key === 'Enter') fetchDiscovery();
@@ -284,7 +284,7 @@ function resetUI(mode) {
     if (kpiEpicenter) kpiEpicenter.textContent = '—';
     if (kpiTopSource) kpiTopSource.textContent = '—';
 
-    // Charts (Llamamos a la nueva función global de analytics.js)
+    // Initialize charts via analytics.js global handler
     if (typeof resetAnalytics === 'function') resetAnalytics();
 
     // Map vs Grid mode
@@ -957,7 +957,7 @@ function updateKPIs(article) {
 }
 
 // ============================================
-// Filtro Cruzado Interactivo (BI Logic)
+// Interactive Cross-Filtering (BI Logic)
 // ============================================
 
 window.applyGlobalFilter = function(filterType, filterValue) {
@@ -1000,7 +1000,7 @@ window.applyGlobalFilter = function(filterType, filterValue) {
 };
 
 // ============================================
-// Inicialización de Flatpickr Date Range Picker y Filtros
+// Initialize Flatpickr Date Range Picker and global filters
 // ============================================
 function initDatePicker() {
     if (typeof flatpickr === 'undefined') return;

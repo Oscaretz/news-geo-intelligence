@@ -40,7 +40,7 @@ class NoJobsFilter(logging.Filter):
 logging.getLogger('werkzeug').addFilter(NoJobsFilter())
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
@@ -179,7 +179,7 @@ def _strip_nulls(obj):
 
 
 
-# Hilo para la Etapa 2 (Streaming)
+# Background thread for Phase 2 Streaming
 def run_orchestrator_mapping(search_params, q):
     async def _run():
         orchestrator = OrchestratorAgent()
@@ -213,7 +213,7 @@ def available_maps():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-#  (ETAPA 1): Botón "Buscar Noticias Rápidas"
+# Phase 1: Fast Discovery Endpoint
 @app.route('/api/discovery', methods=['GET'])
 @rate_limit(limit=15, window=60)
 def api_discovery():

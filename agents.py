@@ -27,13 +27,13 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 from curl_cffi.requests import AsyncSession, Session
 from playwright.async_api import async_playwright
 
-# Asegurar ruta absoluta para la carpeta logs
+# Ensure absolute path for log directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
-# Define tu zona horaria local
+# Define local timezone
 LOCAL_TZ = ZoneInfo("America/Merida")
 
 log_filename = f"logs/scraping_{datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}.log"
@@ -45,11 +45,11 @@ class TimezoneFormatter(logging.Formatter):
             return dt.strftime(datefmt)
         return dt.strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
 
-# Configuración directa sobre el root logger para evitar conflictos con Flask
+# Apply configuration directly to the root logger to avoid conflicts with Flask
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Limpiar handlers previos si existieran
+# Clear previous handlers to avoid duplicates
 if logger.hasHandlers():
     logger.handlers.clear()
 
