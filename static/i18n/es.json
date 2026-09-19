@@ -187,5 +187,7 @@
   "techScraperParseTitle": "Parseo y Limpieza (Trafilatura & BeautifulSoup):",
   "techScraperParseDesc": "La extracción algorítmica principal es manejada por <code>Trafilatura</code> para discernir de forma heurística el cuerpo del artículo descartando boilerplate. <code>BeautifulSoup</code> actúa como motor de respaldo y para la obtención de metadatos estructurales como <code>og:image</code>.",
   "techScraperConcurrencyTitle": "Concurrencia Asíncrona (ThreadPoolExecutor):",
-  "techScraperConcurrencyDesc": "Dado que las operaciones son intensivas en I/O de red, se implementa multiplexión mediante <code>ThreadPoolExecutor</code> y corrutinas asíncronas, permitiendo el scrapeo simultáneo de múltiples URLs sin bloquear el Event Loop principal de Flask."
+  "techScraperConcurrencyDesc": "Dado que las operaciones son intensivas en I/O de red, se implementa multiplexión mediante <code>ThreadPoolExecutor</code> y corrutinas asíncronas, permitiendo el scrapeo simultáneo de múltiples URLs sin bloquear el Event Loop principal de Flask.",
+  "techScraperRSSTitle": "Descubrimiento Inicial (Google News RSS):",
+  "techScraperRSSDesc": "La fase inicial de descubrimiento explota los feeds RSS de Google News para obtener metadatos estructurados, enlaces directos y aplicar deduplicación base antes de proceder al web scraping profundo (Full-text) del artículo original."
 }

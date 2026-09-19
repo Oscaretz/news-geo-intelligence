@@ -56,6 +56,10 @@
                     
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperRSSTitle">Descubrimiento Inicial (Google News RSS):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperRSSDesc">La fase inicial de descubrimiento explota los feeds RSS de Google News para obtener metadatos estructurados, URLs base y deduplicación inicial antes de proceder al web scraping profundo del artículo original.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperEvasionTitle">Evasión de Bloqueos (curl_cffi / Playwright):</strong>
                             <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperEvasionDesc">Se emplea <code>curl_cffi</code> para suplantar firmas TLS y huellas de navegadores, esquivando protecciones anti-bot de forma ligera. Para sitios con renderizado dinámico intenso, se orquesta un headless browser con <code>Playwright</code>.</span>
                         </div>

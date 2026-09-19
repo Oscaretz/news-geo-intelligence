@@ -187,5 +187,7 @@
   "techScraperParseTitle": "Parsing & Cleaning (Trafilatura & BeautifulSoup):",
   "techScraperParseDesc": "Primary content extraction relies on <code>Trafilatura</code> to extract meaningful article body while stripping ads and footers. <code>BeautifulSoup</code> serves as fallback parser and metadata extractor (e.g. <code>og:image</code>).",
   "techScraperConcurrencyTitle": "Asynchronous Concurrency (ThreadPoolExecutor):",
-  "techScraperConcurrencyDesc": "Network I/O is accelerated via <code>ThreadPoolExecutor</code> workers alongside asynchronous coroutines, enabling parallel multi-URL scraping without blocking Flask's event loop."
+  "techScraperConcurrencyDesc": "Network I/O is accelerated via <code>ThreadPoolExecutor</code> workers alongside asynchronous coroutines, enabling parallel multi-URL scraping without blocking Flask's event loop.",
+  "techScraperRSSTitle": "Initial Discovery (Google News RSS):",
+  "techScraperRSSDesc": "The initial discovery phase leverages Google News RSS feeds to fetch structured metadata, direct URLs, and apply base deduplication before proceeding to the deep full-text scraping of the original article."
 }
