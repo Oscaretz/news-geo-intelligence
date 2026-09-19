@@ -1,0 +1,144 @@
+<!-- TAB 3: TECHNICAL DOCUMENTATION -->
+    <div id="view-docs" class="hidden flex-col gap-md w-full">
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="techDocsTitle">Technical Documentation</h1>
+            <p class="text-body-md text-on-surface-variant" data-i18n="techDocsSubtitle">Arquitectura y especificaciones técnicas del ecosistema.</p>
+        </div>
+
+        <div class="flex flex-col xl:flex-row gap-lg">
+            
+            <aside class="w-full xl:w-[280px] flex-shrink-0">
+                <div class="bg-surface-container-lowest rounded-2xl p-md custom-shadow border border-white/40 sticky top-8">
+                    <nav class="flex flex-col gap-base text-body-md font-medium">
+                        <a href="#topology" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">account_tree</span> <span data-i18n="techNavTopology">Topología</span></a>
+                        <a href="#etl" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">memory</span> <span data-i18n="techNavEtl">Pipeline ETL</span></a>
+                        <a href="#datamodel" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">database</span> <span data-i18n="techNavDatamodel">Modelo de Datos</span></a>
+                        <a href="#llm" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">smart_toy</span> <span data-i18n="techNavLlm">Modelos (LLMs)</span></a>
+                        <a href="#chatbot_tech" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">chat</span> <span data-i18n="techNavChatbot">AI Chatbot</span></a>
+                        <a href="#catalogs" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">map</span> <span data-i18n="techNavCatalogs">Catálogos</span></a>
+                        <a href="#deployment" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">cloud_upload</span> <span data-i18n="techNavDeployment">Despliegue</span></a>
+                    </nav>
+                </div>
+            </aside>
+            
+            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-2xl p-lg lg:p-xl custom-shadow border border-white/40">
+                
+                <section id="topology" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec1Title">1. Topología de la Arquitectura</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec1Desc">La solución se apoya en un ecosistema de microservicios Dockerizados que orquestan el ciclo de vida del dato analítico.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techFlaskTitle">Flask (Web):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techFlaskDesc">Proporciona endpoints RESTful asíncronos y sirve la interfaz frontend construida con Tailwind CSS y Vanilla JS.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techPgTitle">PostgreSQL (OLAP Storage):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techPgDesc">Motor persistente central, configurado con esquemas transaccionales para raw data y tablas relacionales orientadas a análisis.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDagsterWebTitle">Dagster Webserver (UI):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDagsterWebDesc">Expone el panel de control gráfico de Dagster, permitiendo trazar linaje de datos y monitorear el estado de los runs en tiempo real.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDagsterDaemonTitle">Dagster Daemon:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDagsterDaemonDesc">Coordinador de ejecución en background que maneja la persistencia de colas, retries y schedulers.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="etl" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec2Title">2. Pipeline ETL y Orquestación (Dagster)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec2Desc">La lógica de negocio asíncrona está encapsulada en <em>Software-Defined Assets (SDAs)</em> de Dagster (<code>etl/definitions.py</code>). Este orquestador coordina las recolecciones de información y los motores de inferencia masiva.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec2Body">El flujo inicia extrayendo metadatos no procesados, los cuales se agrupan y paralelizan hacia los nodos computacionales (LLM). Si ocurre una falla irrecuperable en un lote, el sistema descarta los registros en una <strong class="text-on-background font-medium">Dead Letter Queue (DLQ)</strong> local para inspección manual, permitiendo que el pipeline principal continúe sin afectar la integridad del DAG.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="datamodel" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec3Title">3. Modelo de Datos</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec3Desc">El almacén implementa un esquema en estrella (OLAP Star Schema) diseñado para maximizar el rendimiento (throughput) de las lecturas analíticas en el frontend.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techFactTableTitle">fact_news_metrics:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techFactTableDesc">Tabla de hechos conteniendo la granularidad atómica por artículo (conteo de palabras, sentimiento).</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDimTableTitle">Tablas de Dimensión:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDimTableDesc"><code>dim_date</code>, <code>dim_source</code>, <code>dim_entities</code>.</span>
+                        </div>
+                    </div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec3Body">La ingesta utiliza lógica idempotente mediante operaciones <code>UPSERT</code> (<code>ON CONFLICT DO UPDATE</code> o <code>DO NOTHING</code>), garantizando que las reejecuciones del ETL no generen duplicados ni violaciones de primary keys.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="llm" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec4Title">4. Integración de Modelos (LLMs)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Desc">La inferencia semántica se fundamenta en un flujo híbrido tolerante a fallos a través de las SDKs de Groq y Gemini (Flash).</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="chatbot_tech" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec5Title">5. Asistente Conversacional (RAG)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec5Desc">El motor integra un asistente analítico avanzado que permite consultar el modelo relacional subyacente.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techSseTitle">Streaming API:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techSseDesc">Implementado vía Server-Sent Events (SSE) nativos en Flask para el renderizado asíncrono y progresivo de las respuestas en el frontend, evitando timeouts HTTP.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techContextTitle">Inyección de Contexto:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techContextDesc">El LLM recibe dinámicamente un volcado serializado de métricas y acceso a las ejecuciones históricas para responder utilizando la técnica Retrieval-Augmented Generation.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="catalogs" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec6Title">6. Capa de Catálogos (GeoJSON & i18n)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec6Desc">El sistema expone configuraciones modulares permitiendo escalar la plataforma horizontalmente sin modificar el código base.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techGeoCacheTitle">Caché en Memoria (Geometrías):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techGeoCacheDesc">Las topologías territoriales se precargan (<code>geojson_cache.py</code>) desde <code>map_config.json</code> y archivos vectoriales estáticos, reduciendo dramáticamente el consumo de I/O en la renderización de Leaflet.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techI18nTitle">Internacionalización (i18n):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techI18nDesc">El frontend abstrae un diccionario inyectado que permite conmutar claves <code>data-i18n</code> mediante iteradores JavaScript en el cliente.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="deployment" class="scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec7Title">7. Despliegue y Repositorio</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec7Desc">El despliegue está contenerizado. Los comandos operativos principales son los siguientes:</p>
+                    <div class="bg-inverse-surface text-inverse-on-surface p-md rounded-xl font-label-md text-body-md leading-loose overflow-x-auto mt-lg shadow-inner">
+                        <pre><code># 1. Clonar el repositorio
+git clone &lt;repository_url&gt;
+cd google_news_scraping
+
+# 2. Configurar variables de entorno
+cp .env.template .env
+# Editar .env (DATABASE_URL y API Keys: GROQ, GEMINI)
+
+# 3. Construir y levantar servicios
+docker-compose up -d --build</code></pre>
+                    </div>
+                </section>
+                
+            </div>
+        </div>
+    </div>

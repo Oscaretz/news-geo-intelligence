@@ -1,0 +1,83 @@
+<!-- TAB 1: MAIN SEARCH (News Feed) -->
+    <div id="view-main" class="flex flex-col gap-md w-full">
+        <!-- Full-width Header -->
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="newsSummary">News Summary</h1>
+            <p class="text-body-md text-on-surface-variant" id="news-summary-subtitle" data-i18n="noDates">No dates available</p>
+        </div>
+
+        <!-- 2-Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start w-full">
+            <!-- Left: Top Stories (2 most recent) -->
+            <div class="lg:col-span-8 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 w-full h-full">
+                    <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2 mb-md">
+                        <span data-i18n="recentNews">Recent News</span> <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+                    </h2>
+                    <div id="articlesFeed" class="flex flex-col gap-md w-full">
+                        <!-- Top 2 cards render here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Right: Full paginated feed + filters -->
+            <div class="lg:col-span-4 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col w-full" style="max-height: 80vh;">
+                    <div class="p-md border-b border-outline-variant/20 flex items-center justify-between flex-shrink-0">
+                        <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2">
+                            <span data-i18n="fullFeed">Full Feed</span>
+                        </h2>
+                        <div class="flex items-center gap-2 relative">
+                            <span id="feedPaginationInfo" class="text-label-md text-on-surface-variant"></span>
+                            <button id="feedFilterClearBtn" onclick="clearFeedFilters()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hidden" title="Clear filters">
+                                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                            </button>
+                            <button id="feedFilterToggleBtn" onclick="toggleFeedFilterPopover()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Filter feed">
+                                <span class="material-symbols-outlined text-[18px]">tune</span>
+                            </button>
+                            <!-- Filter Popover -->
+                            <div id="feedFilterPopover" class="hidden absolute right-0 top-full mt-2 w-72 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg z-50 p-md">
+                                <!-- Date Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="dateLabel">Date</p>
+                                    <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." data-i18n="selectDates" readonly>
+                                </div>
+                                <!-- Source Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="sourceLabel">Source</p>
+                                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                        <input type="checkbox" id="feedSourceSelectAll" onchange="feedSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
+                                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                    </label>
+                                    <div id="feedSourceCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                </div>
+                                <!-- State Filter — hidden until states exist -->
+                                <div id="feedStateFilterSection" class="hidden">
+                                    <div class="border-t border-outline-variant/10 pt-3 mb-3">
+                                        <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="stateLabel">State</p>
+                                        <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                            <input type="checkbox" id="feedStateSelectAll" onchange="feedSelectAll('State', this.checked)" class="w-3.5 h-3.5">
+                                            <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                        </label>
+                                        <div id="feedStateCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant/10">
+                                    <button onclick="clearFeedFilters()" class="px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors" data-i18n="clearBtn">Clear</button>
+                                    <button onclick="toggleFeedFilterPopover()" class="px-3 py-1 text-xs bg-primary-container text-on-primary rounded-full hover:bg-primary transition-colors" data-i18n="doneBtn">Done</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Scrollable list -->
+                    <div id="fullFeedList" class="flex-1 overflow-y-auto divide-y divide-outline-variant/10">
+                        <!-- paginated cards render here -->
+                    </div>
+                    <!-- Pagination controls -->
+                    <div class="flex items-center justify-between px-md py-sm border-t border-outline-variant/10 flex-shrink-0">
+                        <button id="feedPrevBtn" onclick="feedPageChange(-1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="prevBtn">← Prev</span></button>
+                        <button id="feedNextBtn" onclick="feedPageChange(1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="nextBtn">Next →</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

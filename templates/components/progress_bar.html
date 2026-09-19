@@ -1,0 +1,16 @@
+<div id="progressContainer" class="hidden max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-4 transition-opacity duration-500 opacity-0">
+    <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px] animate-spin" id="progressSpinner">sync</span>
+                <span id="progressStatusText" class="text-label-md font-medium text-on-surface">Initializing...</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-surface-container px-3 py-1.5 rounded-md">
+                <span class="material-symbols-outlined text-on-surface-variant text-[16px]">timer</span>
+                <span id="progressTimer" class="text-label-sm font-mono text-on-surface-variant">00:00</span>
+            </div>
+        </div>
+        <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-primary transition-all duration-300 ease-out w-0"></div>
+        </div>
+    </div>
