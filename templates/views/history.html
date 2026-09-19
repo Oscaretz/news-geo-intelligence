@@ -1,0 +1,80 @@
+<div id="view-history" class="hidden flex flex-col gap-lg">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md flex-wrap gap-3">
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="executionHistory">Execution History</h2>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="mapSelectedBtn" onclick="mapSelectedHistory()" class="hidden px-3 py-1.5 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">map</span> <span id="mapSelectedCount">Map Selected (0)</span>
+                    </button>
+                    <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." data-i18n="searchHistory" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    
+                    <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                        <option value="ALL" data-i18n="allStatuses">All Statuses</option>
+                        <option value="ANALYZED" data-i18n="analyzed">Analyzed</option>
+                        <option value="RAW" data-i18n="rawArticles">Raw Articles</option>
+                    </select>
+                    
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md text-body-md text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-colors select-none">
+                        <input type="checkbox" id="historyHideZeroCheck" onchange="onHistoryFilterChange()" class="accent-primary w-4 h-4">
+                        <span data-i18n="hide0Articles">Hide 0 articles</span>
+                    </label>
+
+                    <button onclick="toggleHistoryColumns()" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-md text-on-surface-variant transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[18px]">view_column</span> <span data-i18n="columns">Columns</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="historyColumnToggle" class="hidden mb-4 p-3 bg-surface-container rounded-md flex flex-wrap gap-4 text-sm text-on-surface-variant">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> <span data-i18n="searchTerm">Search Term</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> <span data-i18n="filters">Filters</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> <span data-i18n="scrapedOn">Scraped On</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> <span data-i18n="articles">Articles</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(5)" class="accent-primary"> <span data-i18n="actions">Actions</span></label>
+            </div>
+
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse" id="historyTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
+                            <th class="py-2 px-3 w-10 text-center">
+                                <input type="checkbox" id="historyMasterCheckbox" onchange="toggleAllHistorySelection()" class="accent-primary w-4 h-4 cursor-pointer">
+                            </th>
+                            <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('search_term')">
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-history-search_term" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-2 px-3" data-i18n="filters">Filters</th>
+                            <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('scraped_at')">
+                                <div class="flex items-center gap-1"><span data-i18n="scrapedOn">Scraped On</span> <span id="sort-icon-history-scraped_at" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                            </th>
+                            <th class="py-2 px-3 text-center cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('total_articles')">
+                                <div class="flex items-center justify-center gap-1"><span data-i18n="totalArticles">Total Articles</span> <span id="sort-icon-history-total_articles" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-2 px-3 text-right" data-i18n="actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="text-body-md text-on-surface">
+                        <!-- History rows injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- History Pagination Footer -->
+            <div id="historyPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
+                <div class="flex items-center gap-2">
+                    <span data-i18n="show">Show</span>
+                    <select id="historyPageSizeSelect" onchange="onHistoryPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span data-i18n="entriesPerPage">entries per page</span>
+                </div>
+                <div id="historyPageInfo" class="font-medium text-xs sm:text-sm">
+                    Showing 0-0 of 0 entries
+                </div>
+                <div id="historyPaginationButtons" class="flex items-center gap-1">
+                    <!-- Dynamic pagination buttons -->
+                </div>
+            </div>
+        </div>
+    </div>

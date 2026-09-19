@@ -1,0 +1,62 @@
+<div id="view-jobs" class="hidden flex flex-col gap-lg w-full">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md flex-wrap gap-3">
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="bgJobsQueue">Background Jobs Queue</h2>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." data-i18n="searchJobs" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                        <option value="ALL" data-i18n="allJobs">All Jobs</option>
+                        <option value="ACTIVE">Active (QUEUED / ANALYZING)</option>
+                        <option value="READY">Ready for LLM (SCRAPED)</option>
+                        <option value="COMPLETED" data-i18n="completed">Completed</option>
+                    </select>
+                    <button onclick="fetchJobs()" class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md hover:bg-surface-container-high transition-colors text-on-surface">
+                        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="w-full overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="jobsTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
+                            <th class="py-3 px-4 font-medium" data-i18n="jobId">Job ID</th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('query')">
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-jobs-query" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('status')">
+                                <div class="flex items-center gap-1"><span data-i18n="status">Status</span> <span id="sort-icon-jobs-status" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('end_time')">
+                                <div class="flex items-center gap-1"><span data-i18n="lastUpdated">Last Updated</span> <span id="sort-icon-jobs-end_time" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('elapsed')">
+                                <div class="flex items-center gap-1"><span data-i18n="elapsedTime">Elapsed Time</span> <span id="sort-icon-jobs-elapsed" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium" data-i18n="actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody" class="text-body-md text-on-surface">
+                        <!-- Dynamic Jobs -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Jobs Pagination Footer -->
+            <div id="jobsPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
+                <div class="flex items-center gap-2">
+                    <span data-i18n="show">Show</span>
+                    <select id="jobsPageSizeSelect" onchange="onJobsPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span data-i18n="entriesPerPage">entries per page</span>
+                </div>
+                <div id="jobsPageInfo" class="font-medium text-xs sm:text-sm">
+                    Showing 0-0 of 0 entries
+                </div>
+                <div id="jobsPaginationButtons" class="flex items-center gap-1">
+                    <!-- Dynamic pagination buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
