@@ -79,10 +79,10 @@ async def apply_indexes(pool) -> None:
             # CONCURRENTLY requires autocommit — acquire raw connection
             async with pool.acquire() as conn:
                 await conn.execute(stmt)
-            logger.info(f"[db_indexes] ✅ Applied: {clean[:80]}…")
+            logger.info(f"[db_indexes] Applied: {clean[:80]}…")
         except Exception as exc:
             # Non-fatal: index may already exist or DB user lacks rights
-            logger.warning(f"[db_indexes] ⚠️  Skipped (non-fatal): {clean[:80]}… — {exc}")
+            logger.warning(f"[db_indexes] Skipped (non-fatal): {clean[:80]}… — {exc}")
 
 
 def apply_indexes_sync(db_url: str) -> None:

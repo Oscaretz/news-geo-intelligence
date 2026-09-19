@@ -200,6 +200,8 @@ def index():
     from chatbot import get_model_display_name
     return render_template('index.html', chatbot_model=get_model_display_name())
 
+
+
 @app.route('/api/available-maps', methods=['GET'])
 def available_maps():
     config_path = os.path.join(app.root_path, 'static', 'maps', 'map_config.json')
