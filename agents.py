@@ -742,17 +742,14 @@ class OrchestratorAgent:
         
         # Load articles for this execution that haven't been geocoded yet
         async with self.history_db.acquire() as conn:
-            rows = await conn.fetch("SELECT article_id, execution_id, url, title, date, source, image_url FROM articles WHERE execution_id = $1 AND geodata IS NULL", execution_id)
+            rows = await conn.fetch("SELECT article_id, execution_id, url, title, date, source, image_url, content_snippet FROM articles WHERE execution_id = $1 AND geodata IS NULL", execution_id)
             
         articles = [dict(r) for r in rows]
         total_target = len(articles)
         
-        # We also need the scraped_text which is only in sqlite cache, keyed by url
-        async with self.db_lock:
-            for a in articles:
-                cursor = await self.db.execute("SELECT scraped_text FROM articles_cache WHERE url = ? OR real_url = ?", (a['url'], a['url']))
-                row = await cursor.fetchone()
-                a['scraped_text'] = row[0] if row else ""
+        # We no longer need sqlite scraped_text since we have content_snippet in Postgres
+        for a in articles:
+            a['scraped_text'] = a.get('content_snippet', '')
                 
         current = 0
         discarded = 0
