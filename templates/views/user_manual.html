@@ -76,7 +76,9 @@
                 <section id="dashboard" class="mb-xl scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec3Title">3. Dashboard Analítico y KPIs</h2>
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec3Desc">Una vez finalizada la extracción, la pestaña "Análisis y Mapas" muestra el resumen inteligente de los datos.</p>
-                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="{{ url_for('static', filename='img/usermanual3.png') }}" alt="Overview" class="w-full h-auto object-cover" />
+                    </div>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="userKpisTitle">Indicadores Clave (KPIs):</strong>
@@ -98,7 +100,14 @@
                 <section id="manual-map" class="mb-xl scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec4Title">4. Mapa Interactivo y Geolocalización</h2>
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec4Desc">La herramienta de mapa colorea los estados de un país (como México o Estados Unidos) según la cantidad de noticias que hacen mención a esa región específica.</p>
-                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <div class="lg:col-span-8 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-white">
+                            <img src="{{ url_for('static', filename='img/usermanual4.png') }}" alt="Charts View" class="w-full h-auto object-contain" />
+                        </div>
+                        <div class="lg:col-span-4 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-surface-container-lowest">
+                            <img src="{{ url_for('static', filename='img/usermanual4_1.png') }}" alt="KPIs View" class="w-full h-auto object-contain" />
+                        </div>
+                    </div>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="userMapFilterTitle">Filtrado con clic:</strong>
