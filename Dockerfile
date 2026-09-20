@@ -5,9 +5,10 @@ RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install Python dependencies (forcing CPU-only torch to skip ~4.5GB CUDA packages)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Define the path where Playwright will store browsers to make them accessible
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
