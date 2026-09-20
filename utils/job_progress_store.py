@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import sqlite3
 import os
 import platform
@@ -30,7 +32,7 @@ def update_progress(run_id, progress_pct, current_step):
                     current_step=excluded.current_step
             ''', (run_id, progress_pct, current_step))
     except Exception as e:
-        print(f"Failed to update progress: {e}")
+        logger.error(f"Failed to update progress: {e}")
 
 def get_progress(run_id):
     try:
@@ -40,5 +42,5 @@ def get_progress(run_id):
             if row:
                 return {"progress_pct": row[0], "current_step": row[1]}
     except Exception as e:
-        print(f"Failed to get progress: {e}")
+        logger.error(f"Failed to get progress: {e}")
     return {"progress_pct": 0, "current_step": "Starting..."}

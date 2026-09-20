@@ -109,4 +109,4 @@ if __name__ == "__main__":
     db_url = os.environ.get("DATABASE_URL")
     logging.basicConfig(level=logging.INFO)
     apply_indexes_sync(db_url)
-    print("Index migration complete.")
+    logger.info("Index migration complete.")

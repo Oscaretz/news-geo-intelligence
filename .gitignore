@@ -1,7 +1,7 @@
-﻿# Bases de datos y logs
+﻿# Databases and logs
 debug_scraping.txt
 
-# Seguridad y binarios
+# Security and binaries
 __pycache__/
 venv/
 news_images/
@@ -23,7 +23,7 @@ tailwindcss.exe
 *.exe
 extra/tailwindcss.exe
 
-# Archivos temporales, scripts de prueba unicos y binarios locales
+# Temporary files, local binaries and test scripts
 extra/
 cache.db-shm
 cache.db-wal

@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import asyncio
 import threading
 import time
@@ -42,14 +44,14 @@ class QueueManager:
                             
                         update_progress(execution_id, 100, "Análisis completo.")
                     except Exception as e:
-                        print(f"Error in LLM queue process for {execution_id}: {e}")
+                        logger.error(f"Error in LLM queue process for {execution_id}: {e}")
                     finally:
                         async with self.lock:
                             self.active_execution_id = None
                 else:
                     await asyncio.sleep(2)
             except Exception as e:
-                print(f"Queue error: {e}")
+                logger.error(f"Queue error: {e}")
                 await asyncio.sleep(2)
 
     def start(self):

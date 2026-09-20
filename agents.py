@@ -486,7 +486,7 @@ class OrchestratorAgent:
         try:
             db_url = os.environ.get('DATABASE_URL')
             if not db_url:
-                raise ValueError("DATABASE_URL no está configurada")
+                raise ValueError("DATABASE_URL is not configured")
             try:
                 self.history_db = await asyncpg.create_pool(db_url)
             except Exception as pool_err:

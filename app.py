@@ -578,7 +578,7 @@ def get_history_detail(execution_id):
 def aggregate_analytics():
     data = request.get_json(silent=True) or {}
     execution_ids = data.get('execution_ids', [])
-    print(f"AGGREGATE CALLED with ids: {execution_ids}", flush=True)
+    app.logger.info(f"AGGREGATE CALLED with ids: {execution_ids}")
     
     if not execution_ids or not isinstance(execution_ids, list):
         return jsonify({"error": "Invalid or missing execution_ids"}), 400
@@ -600,7 +600,7 @@ def aggregate_analytics():
             return dt.isoformat()
 
         detail = asyncio.run(_fetch())
-        print(f"AGGREGATE FETCH RETURNED: {detail}", flush=True)
+        app.logger.info(f"AGGREGATE FETCH RETURNED: {detail}")
         if not detail or not detail.get('executions'):
             return jsonify({"error": "No executions found"}), 404
             
@@ -614,7 +614,7 @@ def aggregate_analytics():
             
         return jsonify(_strip_nulls(detail))
     except Exception as e:
-        print(f"AGGREGATE ERROR: {e}", flush=True)
+        app.logger.error(f"AGGREGATE ERROR: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -659,7 +659,7 @@ def get_chat_history():
             if db_url and '@postgres:' in db_url:
                 db_url = db_url.replace('@postgres:5432', '@localhost:5433')
             elif not db_url:
-                db_url = "postgresql://admin:admin123@localhost:5433/history_db"
+                raise ValueError("DATABASE_URL is not configured")
                 
             conn = await asyncpg.connect(db_url)
             rows = await conn.fetch("SELECT role, encrypted_content, timestamp FROM chat_history WHERE execution_id = $1 ORDER BY timestamp ASC", execution_id)

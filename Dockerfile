@@ -9,10 +9,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Definir la ruta donde Playwright guardará los navegadores para que sean accesibles
+# Define the path where Playwright will store browsers to make them accessible
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Instalar Playwright y Chromium globalmente en esa carpeta compartida
+# Install Playwright and Chromium globally in the shared folder
 RUN playwright install chromium && playwright install-deps chromium
 RUN chmod -R 777 /ms-playwright
 

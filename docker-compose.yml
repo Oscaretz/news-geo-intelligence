@@ -1,9 +1,7 @@
-version: '3.8'
 
 services:
   web:
     build: .
-    user: root
     ports:
       - "127.0.0.1:5000:5000"
     volumes:
@@ -41,7 +39,6 @@ services:
   dagster-webserver:
     build: .
     image: scrapingnews-dagster-img
-    user: root
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -62,7 +59,6 @@ services:
   dagster-daemon:
     build: .
     image: scrapingnews-dagster-img
-    user: root
     volumes:
       - .:/app
       - ./dagster.yaml:/dagster_home/dagster.yaml:ro
