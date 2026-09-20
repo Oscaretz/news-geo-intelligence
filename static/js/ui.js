@@ -1512,6 +1512,9 @@ window.mapSelectedHistory = async function() {
         if (typeof resetAnalytics === 'function') resetAnalytics();
         if (typeof resetMapState === 'function') resetMapState();
 
+        const mapWrapper = document.getElementById('mapWrapper');
+        if (mapWrapper) mapWrapper.style.display = 'block';
+
         // Setup Active Runs chips
         const activeRunsContainer = document.getElementById('activeRunsContainer');
         if(activeRunsContainer) {
@@ -1911,6 +1914,9 @@ window.viewExecution = async function(execution_id) {
         const activeRunsContainer = document.getElementById('activeRunsContainer');
         if(activeRunsContainer) activeRunsContainer.innerHTML = '';
         updateHistorySelectionUI();
+
+        const mapWrapper = document.getElementById('mapWrapper');
+        if (mapWrapper) mapWrapper.style.display = 'block';
         
         // Reset local statistics and analytics state
         totalArticles = 0;
