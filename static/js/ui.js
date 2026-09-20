@@ -1177,6 +1177,17 @@ function switchTab(tabId) {
     });
     
     // Trigger specific tab logic
+    if (tabId === 'analytics') {
+        // Allow DOM to update display: block before recalculating size
+        setTimeout(() => {
+            if (typeof initMap === 'function' && typeof map === 'undefined' || !map) {
+                initMap(true);
+            }
+            if (typeof map !== 'undefined' && map) {
+                map.invalidateSize();
+            }
+        }, 150);
+    }
     if (tabId === 'history' && typeof loadHistory === 'function') {
         loadHistory();
     }
