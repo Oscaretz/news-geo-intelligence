@@ -55,9 +55,7 @@ if logger.hasHandlers():
 
 formatter = TimezoneFormatter('%(asctime)s [%(levelname)s] %(message)s')
 
-file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+# Remove FileHandler as Docker handles logging natively via StreamHandler
 
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)

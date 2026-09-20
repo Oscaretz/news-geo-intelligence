@@ -10,7 +10,6 @@ services:
       - .env
     environment:
       - FLASK_DEBUG=${FLASK_DEBUG:-0}
-    user: root
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +49,6 @@ services:
       - .env
     environment:
       - DAGSTER_HOME=/dagster_home
-    user: root
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +67,6 @@ services:
       - .env
     environment:
       - DAGSTER_HOME=/dagster_home
-    user: root
     depends_on:
       postgres:
         condition: service_healthy

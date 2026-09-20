@@ -31,8 +31,8 @@ COPY . .
 # Compile Tailwind CSS in production mode
 RUN tailwindcss -i static/css/input.css -o static/css/output.css --minify
 
-# Change ownership so appuser can write cache.db and debug files
-RUN chown -R appuser:appuser /app
+# Change ownership so appuser can write cache.db, debug files, and dagster home
+RUN mkdir -p /dagster_home/logs && chown -R appuser:appuser /app /dagster_home
 
 # Switch to non-root user for security
 USER appuser
