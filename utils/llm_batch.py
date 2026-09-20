@@ -34,21 +34,36 @@ def get_gemini():
 class LLMExtractionError(Exception):
     def __init__(self, message, raw_response): super().__init__(message); self.raw_response = raw_response
 
-async def extract_metrics_batch(articles_text_map: dict) -> str:
+async def extract_metrics_batch(articles_text_map: dict, country: str = "mx") -> str:
     batch_prompt = 'Analyze the following batch of articles and extract the required metrics for EACH. Return ONLY valid JSON matching the schema.\n'
     for art_id, text in articles_text_map.items():
         batch_prompt += f'\n----\nARTICLE ID: {art_id}\nTEXT: {text[:1500]}\n'
     
     schema_json = json.dumps(BatchNewsMetrics.model_json_schema())
+    
+    valid_states = []
+    try:
+        with open(f"static/maps/{country}_states.geojson", "r", encoding="utf-8") as gf:
+            import json as geojson
+            gdata = geojson.load(gf)
+            valid_states = [f["properties"]["state_name"] for f in gdata.get("features", []) if "state_name" in f["properties"]]
+    except Exception as e:
+        logger.warning(f"Could not load valid states for {country}: {e}")
+
+    states_hint = ""
+    if valid_states:
+        states_hint = f"\nALLOWED STATES FOR '{country}': " + ", ".join(valid_states) + "\n"
+        states_hint += f"CRITICAL: DO NOT extract any locations from other countries (e.g. España, Colombia). YOU MUST ONLY extract locations that EXACTLY match one of the ALLOWED STATES listed above.\n"
+
     sys_prompt = f"""You are a strict data extraction system. You must output JSON that perfectly matches this JSON Schema.
 
 CRITICAL LOCATION MAPPING RULES:
-For the 'locations_list' field, you must extract mentioned geographic locations and resolve common Mexican abbreviations/slang so they strictly match the names in map_config.json.
-Specifically:
+For the 'locations_list' field, you must extract mentioned geographic locations and resolve abbreviations to their FULL formal state names.{states_hint}
+Specifically for Mexico (mx):
 - If you see "CDMX", "Ciudad de Mexico", or "DF", output exactly "Ciudad de México".
 - If you see "Edomex" or "Estado de Mexico", output exactly "Estado de México".
-- Ensure case sensitivity and accents are correct. 
-- Only include geographic locations (states, countries). Do not include random entities.
+- If you see "México", use context to infer whether it means the country or "Estado de México" or "Ciudad de México". NEVER just output "México".
+- Ensure case sensitivity and accents are correct.
 
 JSON Schema:
 {schema_json}"""
@@ -93,7 +108,7 @@ JSON Schema:
     
     raise Exception('No LLM clients available.')
 
-async def process_articles_batch(pool, articles_batch: list):
+async def process_articles_batch(pool, articles_batch: list, country: str = "mx"):
     if not articles_batch:
         return
 
@@ -104,7 +119,7 @@ async def process_articles_batch(pool, articles_batch: list):
         execution_id_map[a['article_id']] = a.get('execution_id')
 
     try:
-        raw_json_str = await extract_metrics_batch(text_map)
+        raw_json_str = await extract_metrics_batch(text_map, country)
     except LLMExtractionError as e:
         logger.error(f'Extraction error for batch: {e}')
         for art_id in text_map.keys():

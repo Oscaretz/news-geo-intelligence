@@ -36,7 +36,18 @@ class QueueManager:
                         update_progress(execution_id, 0, "Iniciando análisis LLM...")
                         
                         # We use country from a fallback or fetch it, default 'mx'
-                        async for event in orchestrator.map_stream(execution_id, country="mx"):
+                        country = "mx"
+                        async with orchestrator.history_db.acquire() as conn:
+                            row = await conn.fetchrow("SELECT filters FROM search_executions WHERE execution_id = $1", execution_id)
+                            if row and row['filters']:
+                                import json
+                                try:
+                                    filters = json.loads(row['filters'])
+                                    if 'country' in filters and filters['country']:
+                                        country = filters['country']
+                                except: pass
+                        
+                        async for event in orchestrator.map_stream(execution_id, country=country):
                             current = event.get("current", 0)
                             target = max(event.get("target", 1), 1)
                             progress = min((current / target) * 100, 100)

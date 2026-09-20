@@ -788,7 +788,7 @@ class OrchestratorAgent:
                 }
                 
                 try:
-                    await process_articles_batch(self.history_db, batch)
+                    await process_articles_batch(self.history_db, batch, country)
                     
                     for a in batch:
                         # Set empty states for backward compatibility with UI if needed
