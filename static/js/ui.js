@@ -1,7 +1,7 @@
 
 function formatTemporal(isoString) {
     if (!isoString) return '<span class="text-on-surface-variant text-sm">-</span>';
-    const date = new Date(isoString);
+    const date = new Date(isoString.trim().replace(' ', 'T'));
     if (isNaN(date.getTime())) return '<span class="text-on-surface-variant text-sm">-</span>';
 
     const now = new Date();
@@ -542,7 +542,7 @@ function getFilteredFeed() {
         const stOk = feedSelectedStates.size === 0 || articleStates.some(s => feedSelectedStates.has(s));
         let dateOk = true;
         if (startD && endD && a.date) {
-            let ad = new Date(a.date);
+            let ad = new Date(a.date.trim().replace(' ', 'T'));
             if (!isNaN(ad.getTime())) {
                 dateOk = ad >= startD && ad <= endD;
             }
@@ -634,7 +634,7 @@ function updateNewsSummarySubtitle(articles = null) {
     const validDates = [];
     data.forEach(a => {
         if (a.date) {
-            const d = new Date(a.date);
+            const dateStr = a.date.trim().replace(' ', 'T');\n            const d = new Date(dateStr);
             if (!isNaN(d.getTime())) {
                 validDates.push(d);
             }
@@ -796,7 +796,7 @@ function applyAnalyticsFilters() {
         const srcOk = analyticsSelectedSources.size === 0 || analyticsSelectedSources.has(a.source);
         let dateOk = true;
         if (startD && endD && a.date) {
-            let ad = new Date(a.date);
+            let ad = new Date(a.date.trim().replace(' ', 'T'));
             if (!isNaN(ad.getTime())) {
                 dateOk = ad >= startD && ad <= endD;
             }
