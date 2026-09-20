@@ -35,6 +35,7 @@ CREATE TABLE fact_news_metrics (
     sentiment_score NUMERIC(5,2) DEFAULT 0.0,
     PRIMARY KEY (article_id, execution_id),
     FOREIGN KEY (date_key) REFERENCES dim_date(date_key) ON DELETE SET NULL,
-    FOREIGN KEY (source_id) REFERENCES dim_source(source_id) ON DELETE SET NULL
+    FOREIGN KEY (source_id) REFERENCES dim_source(source_id) ON DELETE SET NULL,
+    FOREIGN KEY (article_id, execution_id) REFERENCES articles(article_id, execution_id) ON DELETE CASCADE
 );
 

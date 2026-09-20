@@ -529,7 +529,7 @@ class OrchestratorAgent:
                         image_url TEXT,
                         content_snippet TEXT,
                         PRIMARY KEY (article_id, execution_id),
-                        FOREIGN KEY(execution_id) REFERENCES search_executions(execution_id)
+                        FOREIGN KEY(execution_id) REFERENCES search_executions(execution_id) ON DELETE CASCADE
                     )
                 """)
                 await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url TEXT;")
