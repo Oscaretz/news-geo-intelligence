@@ -527,11 +527,13 @@ class OrchestratorAgent:
                         source TEXT,
                         geodata JSONB,
                         image_url TEXT,
+                        content_snippet TEXT,
                         PRIMARY KEY (article_id, execution_id),
                         FOREIGN KEY(execution_id) REFERENCES search_executions(execution_id)
                     )
                 """)
                 await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url TEXT;")
+                await conn.execute("ALTER TABLE articles ADD COLUMN IF NOT EXISTS content_snippet TEXT;")
         except Exception as e:
             logger.error(f"⚠️ [Postgres Init Error]: {e}")
             raise
