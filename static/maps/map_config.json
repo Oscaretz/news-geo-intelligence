@@ -6,7 +6,7 @@
     "hl": "es",
     "gl": "MX",
     "ceid": "MX:es",
-    "llm_hints": "Map 'CDMX' to 'Ciudad de México'. Map 'Edomex' to 'México'."
+    "llm_hints": "Map 'CDMX' to 'Ciudad de MÃ©xico'. Map 'Edomex' to 'MÃ©xico'."
   },
   "usa": {
     "country_name": "United States",
