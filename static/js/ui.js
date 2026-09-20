@@ -634,7 +634,8 @@ function updateNewsSummarySubtitle(articles = null) {
     const validDates = [];
     data.forEach(a => {
         if (a.date) {
-            const dateStr = a.date.trim().replace(' ', 'T');\n            const d = new Date(dateStr);
+            const dateStr = a.date.trim().replace(' ', 'T');
+            const d = new Date(dateStr);
             if (!isNaN(d.getTime())) {
                 validDates.push(d);
             }
