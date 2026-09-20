@@ -12,8 +12,8 @@
                     <nav class="flex flex-col gap-base text-body-md font-medium">
                         <a href="#overview" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">menu_book</span> <span data-i18n="userNavOverview">Descripción</span></a>
                         <a href="#search" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">search</span> <span data-i18n="userNavSearch">Búsqueda</span></a>
-                        <a href="#dashboard" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">analytics</span> <span data-i18n="userNavDashboard">Dashboard</span></a>
-                        <a href="#map" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">public</span> <span data-i18n="userNavMap">Mapa Interactivo</span></a>
+                        <a href="#manual-dashboard" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">analytics</span> <span data-i18n="userNavDashboard">Dashboard</span></a>
+                        <a href="#manual-map" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">public</span> <span data-i18n="userNavMap">Mapa Interactivo</span></a>
                         <a href="#chatbot" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">forum</span> <span data-i18n="userNavChatbot">Asistente AI</span></a>
                         <a href="#history" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">history</span> <span data-i18n="userNavHistory">Historial</span></a>
                         <a href="#settings" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">settings</span> <span data-i18n="userNavSettings">Configuración</span></a>
@@ -73,11 +73,19 @@
                 
                 <hr class="border-surface-variant/40 my-xl" />
                 
-                <section id="dashboard" class="mb-xl scroll-mt-32">
+                <section id="manual-dashboard" class="mb-xl scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec3Title">3. Dashboard Analítico y KPIs</h2>
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec3Desc">Una vez finalizada la extracción, la pestaña "Análisis y Mapas" muestra el resumen inteligente de los datos.</p>
-                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
-                        <img src="{{ url_for('static', filename='img/usermanual3.png') }}" alt="Overview" class="w-full h-auto object-cover" />
+                    <!-- <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="{{ url_for('static', filename='img/usermanual3.png') }}" alt="Maps" class="w-full h-auto object-cover" />
+                    </div> -->
+                    <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <div class="lg:col-span-8 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-white">
+                            <img src="{{ url_for('static', filename='img/usermanual4.png') }}" alt="Charts View" class="w-full h-auto object-contain" />
+                        </div>
+                        <div class="lg:col-span-4 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-surface-container-lowest">
+                            <img src="{{ url_for('static', filename='img/usermanual4_1.png') }}" alt="KPIs View" class="w-full h-auto object-contain" />
+                        </div>
                     </div>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
@@ -100,13 +108,16 @@
                 <section id="manual-map" class="mb-xl scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec4Title">4. Mapa Interactivo y Geolocalización</h2>
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec4Desc">La herramienta de mapa colorea los estados de un país (como México o Estados Unidos) según la cantidad de noticias que hacen mención a esa región específica.</p>
-                    <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <!-- <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                         <div class="lg:col-span-8 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-white">
                             <img src="{{ url_for('static', filename='img/usermanual4.png') }}" alt="Charts View" class="w-full h-auto object-contain" />
                         </div>
                         <div class="lg:col-span-4 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-surface-container-lowest">
                             <img src="{{ url_for('static', filename='img/usermanual4_1.png') }}" alt="KPIs View" class="w-full h-auto object-contain" />
                         </div>
+                    </div> -->
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="{{ url_for('static', filename='img/usermanual3.png') }}" alt="Maps" class="w-full h-auto object-cover" />
                     </div>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
@@ -159,7 +170,7 @@
                 <section id="settings" class="scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec7Title">7. Opciones de Configuración y Exportación</h2>
                     <div class="my-lg rounded-2xl custom-shadow border border-outline-variant/30 bg-surface-container-lowest flex items-center justify-center p-8 md:p-12">
-                        <img src="{{ url_for('static', filename='img/usermanual7.png') }}" alt="Settings View" class="w-48 md:w-56 h-auto object-contain rounded-xl custom-shadow" />
+                        <img src="{{ url_for('static', filename='img/usermanual7.png') }}" alt="Settings View" class="w-52 md:w-65 h-auto object-contain rounded-xl custom-shadow" />
                     </div>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
