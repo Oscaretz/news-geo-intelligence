@@ -257,7 +257,10 @@ function resetUI(mode) {
     const feedInfo = document.getElementById('feedPaginationInfo');
     if (feedInfo) feedInfo.textContent = '';
     const subtitleEl = document.getElementById('news-summary-subtitle');
-    if (subtitleEl) subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
+    if (subtitleEl) {
+        subtitleEl.setAttribute('data-i18n', 'noDates');
+        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
+    }
 
     // Hide export & map buttons until data arrives
     const exportBtn = document.getElementById('exportExcelBtn');
@@ -627,7 +630,8 @@ function updateNewsSummarySubtitle(articles = null) {
 
     const data = articles !== null ? articles : getFilteredFeed();
     if (!data || data.length === 0) {
-        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
+        subtitleEl.setAttribute('data-i18n', 'noDates');
+        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
         return;
     }
 
@@ -643,7 +647,8 @@ function updateNewsSummarySubtitle(articles = null) {
     });
 
     if (validDates.length === 0) {
-        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
+        subtitleEl.setAttribute('data-i18n', 'noDates');
+        subtitleEl.textContent = typeof i18n !== 'undefined' && i18n.dictionary && i18n.dictionary['noDates'] ? i18n.dictionary['noDates'] : 'No dates available';
         return;
     }
 
@@ -663,6 +668,7 @@ function updateNewsSummarySubtitle(articles = null) {
                     minDate.getMonth() === maxDate.getMonth() &&
                     minDate.getDate() === maxDate.getDate();
 
+    subtitleEl.removeAttribute('data-i18n');
     if (sameDay) {
         subtitleEl.textContent = formatDate(minDate);
     } else {
