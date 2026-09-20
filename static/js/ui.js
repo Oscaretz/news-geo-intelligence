@@ -2005,8 +2005,13 @@ window.viewExecution = async function(execution_id) {
         const exportBtn = document.getElementById('exportExcelBtn');
         if (exportBtn) exportBtn.classList.remove('hidden');
         const mapearBtn = document.getElementById('mapearBtn');
-        if (mapearBtn) mapearBtn.classList.remove('hidden');
-
+        if (mapearBtn) {
+            if (data.execution && data.execution.status === 'COMPLETED') {
+                mapearBtn.classList.add('hidden');
+            } else {
+                mapearBtn.classList.remove('hidden');
+            }
+        }
         renderTopStories();
         renderFullFeed();
 
