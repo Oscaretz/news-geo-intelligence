@@ -245,7 +245,16 @@
                             </div>
                         </div>
                     </div>
-                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</p>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techLlmLinguaTitle">Compresión Semántica (LLMLingua-2):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techLlmLinguaDesc">Previo a la inferencia, se emplea el modelo <code>microsoft/llmlingua-2</code> para comprimir el texto original de la noticia hasta en un 50%. Esto retiene únicamente los tokens semánticamente vitales (entidades, sujetos, signos de puntuación estructurales), reduciendo drásticamente la latencia y los costos de API sin sacrificar el contexto de extracción.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techPromptEngTitle">Extracción JSON Estricta:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</span>
+                        </div>
+                    </div>
                 </section>
                 
                 <hr class="border-surface-variant/40 my-xl" />
