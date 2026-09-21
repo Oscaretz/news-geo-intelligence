@@ -224,7 +224,7 @@
 
     <nav class="bg-surface border-b border-outline-variant/30">
 <div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
-<button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2 transition-all" onclick="switchTab('main')">
+<button id="tab-main" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('main')">
 <span class="text-body-md font-body-md" data-i18n="mainSearch">Main Search</span>
 </button>
 <button id="tab-analytics" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
@@ -239,7 +239,7 @@
 <button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
 <span class="text-body-md font-body-md" data-i18n="techDocs">Technical Documentation</span>
 </button>
-<button id="tab-manual" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
+<button id="tab-manual" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2 transition-all" onclick="switchTab('manual')">
 <span class="text-body-md font-body-md" data-i18n="userManual">User Manual</span>
 </button>
 </div>
@@ -248,7 +248,7 @@
     
     
     <!-- TAB 1: MAIN SEARCH (News Feed) -->
-    <div id="view-main" class="flex flex-col gap-md w-full">
+    <div id="view-main" class="hidden flex-col gap-md w-full">
         <!-- Full-width Header -->
         <div class="mb-2">
             <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="newsSummary">News Summary</h1>
@@ -931,7 +931,7 @@ docker-compose up -d --build</code></pre>
     </div>
     
     <!-- TAB 4: USER MANUAL -->
-    <div id="view-manual" class="hidden flex-col gap-md w-full">
+    <div id="view-manual" class="flex flex-col gap-md w-full">
         <div class="mb-2">
             <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="userManualTitle">Manual de Usuario</h1>
             <p class="text-body-md text-on-surface-variant" data-i18n="userManualSubtitle">Guía de operación de la plataforma AI News Explorer.</p>
@@ -1195,40 +1195,38 @@ docker-compose up -d --build</code></pre>
 
         <script>
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                document.querySelectorAll('[data-tab]').forEach(btn => {
-                    btn.classList.remove('bg-primary-container', 'text-on-primary', 'font-bold');
-                    btn.classList.add('text-on-surface-variant', 'hover:bg-surface-container-high');
-                });
-                const manualTabBtn = document.querySelector('[data-tab="manual"]');
-                if (manualTabBtn) {
-                    manualTabBtn.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high');
-                    manualTabBtn.classList.add('bg-primary-container', 'text-on-primary', 'font-bold');
-                }
+            // Ensure manual tab is set as active on load
+            if (typeof switchTab === 'function') {
+                switchTab('manual');
+            }
 
-                const views = ['feed', 'analytics', 'history', 'jobs', 'docs', 'manual'];
-                views.forEach(t => {
-                    const el = document.getElementById('view-' + t);
-                    if(el) {
-                        el.classList.add('hidden');
-                        el.classList.remove('flex');
+            // Floating bottom translucent demo banner
+            const banner = document.createElement('div');
+            banner.id = 'demo-mode-banner';
+            banner.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 bg-surface-container-highest/80 backdrop-blur-md border border-outline-variant/40 shadow-lg rounded-full text-on-surface text-xs font-medium transition-all hover:bg-surface-container-highest';
+            banner.innerHTML = `
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <span><strong>Static Demo Mode:</strong> Backend services (scraping, database & LLM) are disabled in GitHub Pages.</span>
+                <button onclick="this.parentElement.remove()" class="text-on-surface-variant hover:text-on-surface ml-1 p-0.5 rounded-full hover:bg-black/5">
+                    <span class="material-symbols-outlined text-[16px] leading-none">close</span>
+                </button>
+            `;
+            document.body.appendChild(banner);
+
+            // Notify user if they try to execute searches
+            const searchInput = document.getElementById('mainSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        alert('Interactive search is not available in the static documentation demo. Check the User Manual for operational flow.');
                     }
                 });
-                const manualView = document.getElementById('view-manual');
-                if(manualView) {
-                    manualView.classList.remove('hidden');
-                    manualView.style.display = 'flex';
-                }
-                
-                const searchContainer = document.getElementById('searchBarContainer');
-                if(searchContainer) {
-                    const warning = document.createElement('div');
-                    warning.className = 'absolute top-full mt-2 w-full bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded shadow-md z-50 text-sm font-medium';
-                    warning.innerHTML = '⚠️ <strong>DEMO MODE:</strong> You are viewing the static GitHub Pages documentation. The backend (Scraping, DB, LLMs) is disconnected. Feel free to explore the User Manual and Technical Documentation tabs.';
-                    searchContainer.appendChild(warning);
-                }
-            }, 100);
+            }
         });
         </script>
-        \n</body>
+</body>
 </html>
