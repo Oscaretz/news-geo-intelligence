@@ -223,7 +223,28 @@
                 <section id="llm" class="mb-xl scroll-mt-32">
                     <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec4Title">5. Integración de Modelos (LLMs)</h2>
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Desc">La inferencia semántica se fundamenta en un flujo híbrido tolerante a fallos a través de las SDKs de Groq y Gemini (Flash).</p>
-                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto">
+                        <div class="min-w-[650px] flex flex-col gap-6 items-center">
+                            <div class="flex items-center justify-center gap-4 w-full">
+                                <div class="bg-white p-3 rounded-xl border border-outline-variant shadow-sm w-48 text-center">
+                                    <span class="material-symbols-outlined text-blue-500 mb-1">text_snippet</span>
+                                    <div class="text-xs font-bold">Raw Article Text</div>
+                                </div>
+                                <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+                                <div class="bg-orange-50 p-3 rounded-xl border-2 border-orange-200 shadow-sm w-48 text-center">
+                                    <span class="material-symbols-outlined text-orange-600 mb-1">psychology</span>
+                                    <div class="text-xs font-bold text-orange-800">LLM</div>
+                                    <div class="text-[10px] text-orange-600">Geo-Extraction Prompt</div>
+                                </div>
+                                <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+                                <div class="bg-green-50 p-3 rounded-xl border border-green-200 shadow-sm w-48 text-center">
+                                    <span class="material-symbols-outlined text-green-600 mb-1">data_object</span>
+                                    <div class="text-xs font-bold text-green-800">JSON Output</div>
+                                    <div class="text-[10px] text-green-600">["Jalisco", "Colima"]</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</p>
                 </section>
                 
