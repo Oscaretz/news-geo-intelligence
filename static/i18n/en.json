@@ -126,6 +126,7 @@
   "techI18nDesc": "The frontend abstracts an injected dictionary that toggles static <code>data-i18n</code> keys in the DOM, alongside programmatic translations using the <code>i18n.t()</code> method. Additionally, it features a regex-based translation engine (<code>translateStep</code>) to parse and localize streaming updates from asynchronous backend jobs in real-time.",
   "techSec7Title": "8. Deployment & Repository",
   "techSec7Desc": "Deployment is containerized with Docker. Key operational commands include:",
+  "techDeployCode": "# 1. Clone the repository\ngit clone https://github.com/Oscaretz/news-geo-intelligence\ncd google_news_scraping\n\n# 2. Configure environment variables\ncp .env.template .env\n# Edit .env (DATABASE_URL and API Keys: GROQ, GEMINI)\n\n# 3. Build and launch services\ndocker-compose up -d --build",
   "userManualTitle": "User Manual",
   "userManualSubtitle": "Operation guide for the AI News Explorer platform.",
   "userNavOverview": "Overview",
