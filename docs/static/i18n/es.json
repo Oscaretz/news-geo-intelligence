@@ -126,7 +126,7 @@
   "techI18nDesc": "El frontend abstrae un diccionario inyectado que permite conmutar claves estáticas <code>data-i18n</code> en el DOM, así como traducciones dinámicas programáticas a través del método <code>i18n.t()</code>. Además, cuenta con un motor de traducción mediante expresiones regulares (<code>translateStep</code>) para localizar en tiempo real los mensajes emitidos por los jobs de backend asíncronos.",
   "techSec7Title": "8. Despliegue y Repositorio",
   "techSec7Desc": "El despliegue está contenerizado. Los comandos operativos principales son los siguientes:",
-  "techDeployCode": "# 1. Clonar el repositorio\ngit clone https://github.com/Oscaretz/news-geo-intelligence\ncd google_news_scraping\n\n# 2. Configurar variables de entorno\ncp .env.template .env\n# Editar .env (DATABASE_URL y API Keys: GROQ, GEMINI)\n\n# 3. Construir y levantar servicios\ndocker-compose up -d --build",
+  "techDeployCode": "# 1. Clonar el repositorio\ngit clone https://github.com/Oscaretz/news-geo-intelligence\ncd news-geo-intelligence\n\n# 2. Configurar variables de entorno\ncp .env.template .env\n# Editar .env (DATABASE_URL y API Keys: GROQ, GEMINI)\n\n# 3. Construir y levantar servicios\ndocker-compose up -d --build",
   "userManualTitle": "Manual de Usuario",
   "userManualSubtitle": "Guía de operación de la plataforma AI News Explorer.",
   "userNavOverview": "Descripción",
