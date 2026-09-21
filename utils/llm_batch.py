@@ -37,7 +37,7 @@ class LLMExtractionError(Exception):
 async def extract_metrics_batch(articles_text_map: dict, country: str = "mx") -> str:
     batch_prompt = 'Analyze the following batch of articles and extract the required metrics for EACH. Return ONLY valid JSON matching the schema.\n'
     for art_id, text in articles_text_map.items():
-        batch_prompt += f'\n----\nARTICLE ID: {art_id}\nTEXT: {text[:1500]}\n'
+        batch_prompt += f'\n----\nARTICLE ID: {art_id}\nTEXT: {text[:3000]}\n'
     
     schema_json = json.dumps(BatchNewsMetrics.model_json_schema())
     

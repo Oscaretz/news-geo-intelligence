@@ -108,8 +108,32 @@ def fetch_url_sync(url: str, timeout: int = 15) -> dict:
             pass
 
         soup = BeautifulSoup(html, 'html.parser')
+        
+        # 1. DOM Selective Destruction para remover ruido social/anuncios
+        noise_pattern = re.compile(r'(share|social|whatsapp|twitter|facebook|linkedin|email|print|newsletter|ads)', re.I)
         for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
-            element.extract()
+            element.decompose()
+        for element in soup.find_all(['div', 'ul', 'li', 'section'], class_=noise_pattern):
+            element.decompose()
+        for element in soup.find_all(id=noise_pattern):
+            element.decompose()
+
+        cleaned_html = str(soup)
+
+        try:
+            import trafilatura
+            # 2. Ajuste de Trafilatura para priorizar precisión sobre ruido
+            extracted = trafilatura.extract(
+                cleaned_html, 
+                include_comments=False, 
+                include_tables=False,
+                favor_precision=True
+            )
+            if extracted and len(extracted.strip()) > 100:
+                return {"text": extracted[:20000], "image_url": image_url}
+        except Exception:
+            pass
+
         return {"text": soup.get_text(separator=' ', strip=True)[:20000], "image_url": image_url}
     except Exception as e:
         logger.error(f"❌ [fetch_url_sync Error] URL {url}: {e}")
@@ -303,7 +327,8 @@ class NLPAgent:
         if not title.strip() and not text.strip(): 
             return []
 
-        compressed_text = self._compress_text(text[:1800])
+        # 3. Aumentamos el corte de 1800 a 3000 caracteres antes de la compresión
+        compressed_text = self._compress_text(text[:3000])
 
         # ── In-memory lookups — no disk I/O ───────────────────────────────
         try:
@@ -665,17 +690,33 @@ class OrchestratorAgent:
                     # Extract article text using BeautifulSoup or trafilatura
                     text = ""
                     if html:
+                        soup = BeautifulSoup(html, 'html.parser')
+                        
+                        # 1. DOM Selective Destruction
+                        noise_pattern = re.compile(r'(share|social|whatsapp|twitter|facebook|linkedin|email|print|newsletter|ads)', re.I)
+                        for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                            element.decompose()
+                        for element in soup.find_all(['div', 'ul', 'li', 'section'], class_=noise_pattern):
+                            element.decompose()
+                        for element in soup.find_all(id=noise_pattern):
+                            element.decompose()
+
+                        cleaned_html = str(soup)
+
                         try:
                             import trafilatura
-                            extracted = trafilatura.extract(html, include_comments=False, include_tables=False)
+                            extracted = trafilatura.extract(
+                                cleaned_html, 
+                                include_comments=False, 
+                                include_tables=False,
+                                favor_precision=True
+                            )
                             if extracted and len(extracted.strip()) > 100:
                                 text = extracted[:20000]
                         except Exception:
                             pass
+                        
                         if not text:
-                            soup = BeautifulSoup(html, 'html.parser')
-                            for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
-                                element.extract()
                             text = soup.get_text(separator=' ', strip=True)[:20000]
                     
                     image_url = extract_image_url(html) if html else ""
