@@ -1200,18 +1200,18 @@ docker-compose up -d --build</code></pre>
                 switchTab('manual');
             }
 
-            // Floating bottom translucent demo banner
+            // Floating bottom centered translucent yellow demo banner
             const banner = document.createElement('div');
             banner.id = 'demo-mode-banner';
-            banner.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 bg-surface-container-highest/80 backdrop-blur-md border border-outline-variant/40 shadow-lg rounded-full text-on-surface text-xs font-medium transition-all hover:bg-surface-container-highest';
+            banner.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-3 px-5 py-3 bg-amber-100/90 backdrop-blur-md border border-amber-300 shadow-xl rounded-2xl text-amber-950 text-xs sm:text-sm font-medium transition-all max-w-[90vw] text-center';
             banner.innerHTML = `
-                <span class="flex h-2 w-2 relative">
+                <span class="flex h-2.5 w-2.5 relative flex-shrink-0">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-600"></span>
                 </span>
-                <span><strong>Static Demo Mode:</strong> Backend services (scraping, database & LLM) are disabled in GitHub Pages.</span>
-                <button onclick="this.parentElement.remove()" class="text-on-surface-variant hover:text-on-surface ml-1 p-0.5 rounded-full hover:bg-black/5">
-                    <span class="material-symbols-outlined text-[16px] leading-none">close</span>
+                <span><strong>DEMO MODE:</strong> You are viewing the static GitHub Pages documentation. The backend (Scraping, DB, LLMs) is disconnected. Feel free to explore the User Manual and Technical Documentation tabs.</span>
+                <button onclick="this.parentElement.remove()" class="text-amber-800 hover:text-amber-950 ml-2 p-1 rounded-full hover:bg-amber-200/60 transition-colors flex-shrink-0" title="Close">
+                    <span class="material-symbols-outlined text-[18px] leading-none">close</span>
                 </button>
             `;
             document.body.appendChild(banner);
