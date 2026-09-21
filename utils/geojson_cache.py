@@ -43,7 +43,6 @@ _geojson_lock = Lock()
 
 def get_map_config(country: str = "mx") -> Dict[str, Any]:
     """Return the config dict for *country* from map_config.json (cached)."""
-    global _map_config
     if _map_config is None:
         _load_map_config()
     return _map_config.get(country.lower(), _map_config.get("mx", {}))
@@ -51,7 +50,6 @@ def get_map_config(country: str = "mx") -> Dict[str, Any]:
 
 def get_full_map_config() -> Dict[str, Any]:
     """Return the entire parsed map_config.json dict (cached)."""
-    global _map_config
     if _map_config is None:
         _load_map_config()
     return _map_config
@@ -75,7 +73,6 @@ def get_valid_regions(country: str = "mx") -> List[str]:
 
 def get_available_countries() -> List[str]:
     """Return country keys that have a corresponding GeoJSON file on disk."""
-    global _map_config
     if _map_config is None:
         _load_map_config()
     available = []
@@ -92,7 +89,6 @@ def preload_all() -> None:
     Call once during application startup so the first API request is not
     subject to disk I/O latency.
     """
-    global _map_config
     if _map_config is None:
         _load_map_config()
     for key in _map_config:
