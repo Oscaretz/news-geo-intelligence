@@ -32,7 +32,7 @@ const i18n = {
   },
   async loadDictionary() {
     try {
-      const response = await fetch(`/static/i18n/${this.currentLang}.json`);
+      const response = await fetch(`./static/i18n/${this.currentLang}.json`);
       if (response.ok) {
         this.dictionary = await response.json();
       }

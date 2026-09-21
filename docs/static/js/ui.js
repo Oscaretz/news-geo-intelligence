@@ -1241,8 +1241,24 @@ async function initCountrySelector() {
     if (!container) return;
 
     try {
-        const res = await fetch('/api/available-maps');
-        const maps = await res.json();
+        // Fallback for static GitHub Pages docs
+        let maps = [
+            {"key": "mx", "country_name": "Mexico", "geojson_path": "mx_states.geojson"},
+            {"key": "usa", "country_name": "United States", "geojson_path": "usa_states.geojson"}
+        ];
+        try {
+            const res = await fetch('./static/maps/map_config.json');
+            if (res.ok) {
+                const config = await res.json();
+                maps = Object.entries(config).map(([k, v]) => ({
+                    key: k,
+                    country_name: v.country_name,
+                    geojson_path: v.geojson_path
+                }));
+            }
+        } catch(e) {
+            console.warn("Using fallback maps", e);
+        }
         
         container.innerHTML = maps.map((m, idx) => `
             <label class="flex-1 text-center cursor-pointer relative">

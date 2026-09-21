@@ -64,15 +64,19 @@ async function loadMapForCountry(countryKey) {
     if (map) map.invalidateSize();
 
     try {
-        const fullConfigRes = await fetch('/static/maps/map_config.json');
-        const fullConfig = await fullConfigRes.json();
-        currentCountryConfig = fullConfig[key] || fullConfig['mx'];
+        const fullConfigRes = await fetch('./static/maps/map_config.json');
+        if (fullConfigRes.ok) {
+            const allConfigs = await fullConfigRes.json();
+            currentCountryConfig = allConfigs[key];
+        }
+
+        if (!currentCountryConfig) throw new Error("Config not found for country: " + key);
 
         if (map && currentCountryConfig && isValidCenter(currentCountryConfig.center)) {
             map.setView(currentCountryConfig.center, currentCountryConfig.zoom || 5);
         }
 
-        const geoRes = await fetch(`/static/maps/${key}_states.geojson`);
+        const geoRes = await fetch(`./static/maps/${key}_states.geojson`);
         if (!geoRes.ok) {
             console.error(`Failed to fetch geojson for ${key}: HTTP ${geoRes.status}`);
             return;
