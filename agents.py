@@ -771,10 +771,19 @@ class OrchestratorAgent:
             # Enforce strict quota: filter pool for successful extractions (>200 chars)
             successful_articles = [a for a in articles if len(a.get('scraped_text', '').strip()) > 200]
             
-            logger.info(f"📊 [Quota] Buffer={len(articles)} → Valid={len(successful_articles)} → Returning={min(len(successful_articles), target_count)} (requested={target_count})")
+            # Deduplicate by resolved real_url BEFORE slicing
+            unique_successful = []
+            seen_urls = set()
+            for a in successful_articles:
+                r_url = a.get('real_url') or a.get('url') or ""
+                if r_url not in seen_urls:
+                    seen_urls.add(r_url)
+                    unique_successful.append(a)
+            
+            logger.info(f"📊 [Quota] Buffer={len(articles)} → Valid={len(successful_articles)} → Unique={len(unique_successful)} → Returning={min(len(unique_successful), target_count)} (requested={target_count})")
             
             # Trim to exact user-requested limit
-            final_articles = successful_articles[:target_count]
+            final_articles = unique_successful[:target_count]
             
             # Lock the exact finalized UI selection in cache.db for Phase 2 synchronization
             async with self.db_lock:
