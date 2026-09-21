@@ -225,6 +225,11 @@ async function startStreamMapping() {
 
 async function fetchJobs() {
     try {
+        const isStaticDocs = window.location.protocol === 'file:' || window.location.hostname.includes('github.io');
+        if (isStaticDocs) {
+            if (typeof renderJobsQueue === 'function') renderJobsQueue([]);
+            return;
+        }
         const response = await fetch('/api/jobs');
         const jobs = await response.json();
         if (typeof renderJobsQueue === 'function') {

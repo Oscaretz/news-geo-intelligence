@@ -1688,6 +1688,12 @@ window.clearAllAggregatedRuns = function() {
 
 async function loadHistory() {
     try {
+        const isStaticDocs = window.location.protocol === 'file:' || window.location.hostname.includes('github.io');
+        if (isStaticDocs) {
+            historyData = [];
+            renderHistoryTable();
+            return;
+        }
         const response = await fetch('/api/history');
         if (!response.ok) throw new Error('Failed to fetch history');
         historyData = await response.json();
@@ -1695,7 +1701,8 @@ async function loadHistory() {
     } catch (e) {
         console.error(e);
         const tbody = document.getElementById('historyTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-error">Failed to load history</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-error" data-i18n="failedLoadHistory">Failed to load history</td></tr>';
+        if (typeof i18n !== 'undefined') i18n.translateDOM();
     }
 }
 
