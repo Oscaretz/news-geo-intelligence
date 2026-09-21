@@ -6,7 +6,7 @@
     "hl": "es",
     "gl": "MX",
     "ceid": "MX:es",
-    "llm_hints": "Map 'CDMX' to 'Ciudad de MÃ©xico'. Map 'Edomex' to 'MÃ©xico'."
+    "llm_hints": "Map 'CDMX' to 'Ciudad de MÃ©xico'. Map 'Edomex' to 'Estado de MÃ©xico'. Do not include other Country names in the response."
   },
   "usa": {
     "country_name": "United States",
@@ -15,6 +15,6 @@
     "hl": "en",
     "gl": "US",
     "ceid": "US:en",
-    "llm_hints": "States are often abbreviated (e.g., TX for Texas, CA for California). Map standard abbreviations to full state names."
+    "llm_hints": "States are often abbreviated (e.g., TX for Texas, CA for California). Map standard abbreviations to full state names.  Do not include other Country names in the response."
   }
 }

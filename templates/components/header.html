@@ -10,7 +10,7 @@
 <div class="relative flex-1 max-w-2xl mx-lg" id="searchBarContainer">
 <div id="searchBarWrapper" class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 custom-shadow border border-white/40 focus-within:ring-2 focus-within:ring-primary-container/50 focus-within:border-primary-container transition-all">
 <button class="material-symbols-outlined text-on-surface-variant mr-2 select-none hover:text-primary transition-colors" data-icon="search" onclick="fetchDiscovery()" type="button">search</button>
-<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." data-i18n="searchPlaceholder" type="text"/>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." data-i18n="searchPlaceholder" type="text" maxlength="200"/>
 <button class="flex items-center justify-center p-1 hover:bg-surface-container-high rounded-full transition-colors ml-2" id="searchFilterBtn">
 <span class="material-symbols-outlined text-on-surface-variant" data-icon="arrow_drop_down">arrow_drop_down</span>
 </button>
@@ -21,14 +21,14 @@
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="secondaryKeywords">Secondary Keywords</label>
 <div class="relative">
-<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text"/>
+<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text" maxlength="200"/>
 <span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
 </div>
 </div>
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="excludeWords">Exclude Words</label>
 <div class="relative">
-<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text"/>
+<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text" maxlength="200"/>
 <span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
 </div>
 </div>
@@ -43,7 +43,7 @@
 <div class="flex-1">
 <label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="domainFilter">Domain filter</label>
 <div class="relative">
-<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. .com, .gov, bbc.com">
+<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. .com, .gov, bbc.com" maxlength="150">
 <span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
 </div>
 </div>
