@@ -71,7 +71,7 @@ def extract_image_url(html: str, base_url: str = "") -> str:
         soup = BeautifulSoup(html, 'html.parser')
         
         # Palabras negras que gritan "soy un logo / icono de share"
-        bad_words = re.compile(r'(logo|icon|avatar|ad|advertisement|pixel|facebook|twitter|share|banner|default|placeholder)', re.I)
+        bad_words = re.compile(r'(logo|icon|avatar|advertisement|facebook|twitter|share|banner|default|placeholder)', re.I)
         
         def is_valid_image(u: str) -> bool:
             if not u: return False
