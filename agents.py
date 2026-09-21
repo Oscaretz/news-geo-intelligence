@@ -64,19 +64,48 @@ logger.addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
-def extract_image_url(html: str) -> str:
+def extract_image_url(html: str, base_url: str = "") -> str:
     try:
+        import urllib.parse
+        import re
         soup = BeautifulSoup(html, 'html.parser')
+        
+        # Palabras negras que gritan "soy un logo / icono de share"
+        bad_words = re.compile(r'(logo|icon|avatar|ad|advertisement|pixel|facebook|twitter|share|banner|default|placeholder)', re.I)
+        
+        def is_valid_image(u: str) -> bool:
+            if not u: return False
+            return not bool(bad_words.search(u.lower()))
+            
+        candidates = []
+        
         og_img = soup.find('meta', property='og:image')
         if og_img and og_img.get('content'):
-            return og_img.get('content').strip()
+            candidates.append(og_img.get('content').strip())
+            
         tw_img = soup.find('meta', name='twitter:image')
         if tw_img and tw_img.get('content'):
-            return tw_img.get('content').strip()
+            candidates.append(tw_img.get('content').strip())
+            
+        link_img = soup.find('link', rel='image_src')
+        if link_img and link_img.get('href'):
+            candidates.append(link_img.get('href').strip())
+            
         for img in soup.find_all('img'):
             src = img.get('src')
-            if src and src.startswith('http') and not any(x in src.lower() for x in ['logo', 'icon', 'avatar', 'ad', 'advertisement', 'pixel']):
-                return src.strip()
+            if src and not src.startswith('data:'):
+                candidates.append(src.strip())
+                
+        for src in candidates:
+            if is_valid_image(src):
+                # Arreglar relativas usando urljoin
+                if base_url and not src.startswith('http') and not src.startswith('//'):
+                    src = urllib.parse.urljoin(base_url, src)
+                if src.startswith('//'):
+                    src = "https:" + src
+                if src.startswith('http'):
+                    return src
+                    
     except Exception:
         pass
     return ""
@@ -97,7 +126,7 @@ def fetch_url_sync(url: str, timeout: int = 15) -> dict:
                 return {"text": "", "image_url": ""}
             html = response.text
 
-        image_url = extract_image_url(html)
+        image_url = extract_image_url(html, url)
 
         try:
             import trafilatura
@@ -463,7 +492,7 @@ async def scrape_with_playwright(url: str) -> tuple:
             html = await page.content()
             await browser.close()
             
-            image_url = extract_image_url(html)
+            image_url = extract_image_url(html, url)
             text = ""
             try:
                 import trafilatura
@@ -719,7 +748,7 @@ class OrchestratorAgent:
                         if not text:
                             text = soup.get_text(separator=' ', strip=True)[:20000]
                     
-                    image_url = extract_image_url(html) if html else ""
+                    image_url = extract_image_url(html, real_url) if html else ""
                     
                     # Playwright fallback if text fails minimum length check (>200 chars)
                     if len(text.strip()) <= 200:
