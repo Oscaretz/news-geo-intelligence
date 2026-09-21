@@ -198,6 +198,8 @@ class GoogleSearchAgent:
             
             source_tag = item.find('source')
             source_name = source_tag.text if source_tag is not None else item.findtext('source', 'Desconocido')
+            # Publisher domain is available as an attribute in the <source> tag — free, no extra request
+            source_url = source_tag.get('url', '') if source_tag is not None else ''
             
             try:
                 dt_obj = email.utils.parsedate_to_datetime(item.findtext('pubDate'))
@@ -215,6 +217,7 @@ class GoogleSearchAgent:
                 "url": item.findtext('link'),
                 "date": iso_date,
                 "source": source_name,
+                "source_url": source_url,
                 "summary": clean_desc,
                 "_temp_image_url": rss_image_url
             })
@@ -365,6 +368,42 @@ async def resolve_url_curl(session: AsyncSession, url: str) -> str:
             return resp.url
     except Exception as e:
         logger.error(f"⚠️ [resolve_url_curl Error] {url}: {e}")
+    return url
+
+async def resolve_url_fast(session: AsyncSession, url: str, source_url: str = "") -> str:
+    """Fast Google News URL resolver without Playwright.
+
+    Strategy:
+      1. If not a Google News URL, return as-is.
+      2. Try a GET with full browser headers — sometimes Google follows through.
+      3. If still on news.google.com, use the RSS <source url=...> (publisher homepage)
+         as a graceful fallback so the scraper can still download *something* meaningful.
+      4. Return original URL if nothing else works (caller handles Playwright gate).
+    """
+    if "news.google.com" not in url:
+        return url
+
+    try:
+        headers = {
+            "Referer": "https://news.google.com/",
+            "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Cache-Control": "no-cache",
+        }
+        resp = await session.get(url, allow_redirects=True, timeout=10, headers=headers)
+        final = str(resp.url)
+        if "news.google.com" not in final and resp.status_code == 200:
+            logger.info(f"✅ [resolve_url_fast] Curl resolvió: {final[:80]}")
+            return final
+    except Exception as e:
+        logger.debug(f"⚙️ [resolve_url_fast] Curl falló: {e}")
+
+    # Fallback: publisher domain from RSS <source url=...>
+    if source_url:
+        logger.info(f"🔀 [resolve_url_fast] Usando source_url RSS: {source_url}")
+        return source_url
+
+    # Nothing worked — return original so caller can try Playwright
     return url
 
 async def resolve_url_combined(resolver_agent: UrlResolverAgent, session: AsyncSession, url: str) -> str:
@@ -587,8 +626,23 @@ class OrchestratorAgent:
                     a.pop('_temp_image_url', None)
                     
                     # Resolve real redirect URL
-                    real_url = await resolve_url_combined(self.resolver, session, a['url'])
+                    # Step 1: Fast resolver — tries browser-headers curl, then source_url fallback
+                    source_url_hint = a.get('source_url', '')
+                    real_url = await resolve_url_fast(session, a['url'], source_url=source_url_hint)
+
+                    # Step 2: Only invoke Playwright if still stuck on news.google.com
+                    #         and the RSS gave us no publisher domain hint
+                    if "news.google.com" in real_url:
+                        logger.info(f"🖥️ [resolve] Playwright como último recurso para '{title}'...")
+                        async with self.playwright_semaphore:
+                            try:
+                                real_url = await self.resolver.resolve(session, a['url'])
+                            except Exception as pw_err:
+                                logger.warning(f"⚠️ [resolve Playwright failed] '{title}': {pw_err}")
+                                real_url = source_url_hint or a['url']
+
                     a['real_url'] = real_url
+
                     
                     # Fetch target HTML with retries & backoff
                     html = ""
@@ -629,11 +683,13 @@ class OrchestratorAgent:
                     # Playwright fallback if text fails minimum length check (>200 chars)
                     if len(text.strip()) <= 200:
                         logger.info(f"🔄 [WAF/Empty Text Trigger] Using Playwright fallback for '{title}'...")
-                        pw_text, pw_image = await scrape_with_playwright(real_url)
+                        async with self.playwright_semaphore:
+                            pw_text, pw_image = await scrape_with_playwright(real_url)
                         if len(pw_text.strip()) > len(text.strip()):
                             text = pw_text
                         if not image_url and pw_image:
                             image_url = pw_image
+
                     
                     # Keep raw remote image URL (no local filesystem download)
                     remote_img = image_url or a.get("_temp_image_url") or ""
