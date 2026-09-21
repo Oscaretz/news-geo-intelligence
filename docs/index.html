@@ -914,7 +914,7 @@
                     <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec7Desc">El despliegue está contenerizado. Los comandos operativos principales son los siguientes:</p>
                     <div class="bg-inverse-surface text-inverse-on-surface p-md rounded-xl font-label-md text-body-md leading-loose overflow-x-auto mt-lg shadow-inner">
                         <pre><code># 1. Clonar el repositorio
-git clone &lt;repository_url&gt;
+git clone https://github.com/Oscaretz/news-geo-intelligence
 cd google_news_scraping
 
 # 2. Configurar variables de entorno
@@ -1203,15 +1203,16 @@ docker-compose up -d --build</code></pre>
             // Floating bottom centered translucent yellow demo banner
             const banner = document.createElement('div');
             banner.id = 'demo-mode-banner';
-            banner.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-3 px-5 py-3 bg-amber-100/90 backdrop-blur-md border border-amber-300 shadow-xl rounded-2xl text-amber-950 text-xs sm:text-sm font-medium transition-all max-w-[90vw] text-center';
+            // Use inline CSS to guarantee styling on static hosting where JIT tailwind classes might be missing
+            banner.style.cssText = 'position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 20px; background-color: rgba(254, 243, 199, 0.95); backdrop-filter: blur(8px); border: 1px solid #fcd34d; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); border-radius: 16px; color: #451a03; font-size: 13px; font-weight: 500; transition: all 0.3s ease; width: max-content; max-width: 90vw; text-align: center;';
             banner.innerHTML = `
-                <span class="flex h-2.5 w-2.5 relative flex-shrink-0">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-600"></span>
+                <span style="display: flex; height: 10px; width: 10px; position: relative; flex-shrink: 0;">
+                    <span style="animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 9999px; background-color: #fbbf24; opacity: 0.75;"></span>
+                    <span style="position: relative; display: inline-flex; border-radius: 9999px; height: 10px; width: 10px; background-color: #d97706;"></span>
                 </span>
                 <span><strong>DEMO MODE:</strong> You are viewing the static GitHub Pages documentation. The backend (Scraping, DB, LLMs) is disconnected. Feel free to explore the User Manual and Technical Documentation tabs.</span>
-                <button onclick="this.parentElement.remove()" class="text-amber-800 hover:text-amber-950 ml-2 p-1 rounded-full hover:bg-amber-200/60 transition-colors flex-shrink-0" title="Close">
-                    <span class="material-symbols-outlined text-[18px] leading-none">close</span>
+                <button onclick="this.parentElement.remove()" style="color: #92400e; margin-left: 8px; cursor: pointer; border: none; background: transparent; display: flex; align-items: center; justify-content: center;" title="Close">
+                    <span class="material-symbols-outlined" style="font-size: 18px; line-height: 1;">close</span>
                 </button>
             `;
             document.body.appendChild(banner);

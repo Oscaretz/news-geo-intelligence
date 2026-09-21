@@ -1688,7 +1688,7 @@ window.clearAllAggregatedRuns = function() {
 
 async function loadHistory() {
     try {
-        const isStaticDocs = window.location.protocol === 'file:' || window.location.hostname.includes('github.io');
+        const isStaticDocs = window.location.protocol === 'file:' || window.location.hostname.includes('github.io') || window.location.port !== '5000';
         if (isStaticDocs) {
             historyData = [];
             renderHistoryTable();
