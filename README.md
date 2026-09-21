@@ -5,7 +5,7 @@
 
   <br />
 
-  <a href="https://<tu-usuario>.github.io/<tu-repositorio>/">
+  <a href="https://Oscaretz.github.io/news-geo-intelligence/">
     <img src="https://img.shields.io/badge/Preview-0052FF?style=for-the-badge&logoColor=white" height="45" />
   </a>
 </div>
