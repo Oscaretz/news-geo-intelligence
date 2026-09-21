@@ -2,10 +2,9 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest
 import asyncio
-import aiohttp
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from agents import GoogleSearchAgent, UrlResolverAgent, SiteScraperAgent, NLPAgent
+from agents import GoogleSearchAgent, UrlResolverAgent, NLPAgent
 
 @pytest.mark.asyncio
 async def test_google_search_agent():
@@ -24,12 +23,12 @@ async def test_google_search_agent():
     </rss>
     """
     
-    mock_response = AsyncMock()
-    mock_response.text.return_value = mock_xml
-    mock_response.raise_for_status = MagicMock()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = mock_xml
     
     mock_session = AsyncMock()
-    mock_session.get.return_value.__aenter__.return_value = mock_response
+    mock_session.get = AsyncMock(return_value=mock_response)
     
     results = await agent.search(mock_session, {"query": "test query", "nqueries": "1"})
     assert len(results) == 1
@@ -37,46 +36,37 @@ async def test_google_search_agent():
     assert results[0]['url'] == "https://news.google.com/test"
 
 @pytest.mark.asyncio
-async def test_url_resolver_redirect():
+@patch('agents.async_playwright')
+async def test_url_resolver(mock_playwright):
+    mock_page = AsyncMock()
+    mock_page.url = "https://real-newspaper.com/article"
+    
+    mock_context = AsyncMock()
+    mock_context.new_page = AsyncMock(return_value=mock_page)
+    
+    mock_browser = AsyncMock()
+    mock_browser.new_context = AsyncMock(return_value=mock_context)
+    
+    mock_p_instance = AsyncMock()
+    mock_p_instance.chromium.launch = AsyncMock(return_value=mock_browser)
+    
+    mock_playwright.return_value.__aenter__.return_value = mock_p_instance
+    
     agent = UrlResolverAgent()
-    
-    mock_response = AsyncMock()
-    mock_response.status = 302
-    mock_response.headers = {"Location": "https://real-newspaper.com/article"}
-    
-    mock_session = AsyncMock()
-    mock_session.get.return_value.__aenter__.return_value = mock_response
-    
-    real_url = await agent.resolve(mock_session, "https://google.com/redirect")
+    real_url = await agent.resolve(None, "https://google.com/redirect")
     assert real_url == "https://real-newspaper.com/article"
 
 @pytest.mark.asyncio
-async def test_url_resolver_meta_refresh():
-    agent = UrlResolverAgent()
-    
-    mock_response = AsyncMock()
-    mock_response.status = 200
-    mock_response.text.return_value = '<html><meta http-equiv="refresh" content="0; url=https://real-site.com"></html>'
+async def test_nlp_agent():
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"response": '{"locations": ["Jalisco", "Nuevo León"]}'}
     
     mock_session = AsyncMock()
-    mock_session.get.return_value.__aenter__.return_value = mock_response
+    mock_session.post = AsyncMock(return_value=mock_response)
     
-    real_url = await agent.resolve(mock_session, "https://google.com/meta")
-    assert real_url == "https://real-site.com"
-
-@pytest.mark.asyncio
-@patch('agents.genai.Client')
-async def test_nlp_agent(mock_client_class):
-    mock_response = MagicMock()
-    mock_response.text = '["Jalisco", "Nuevo León"]'
-    
-    mock_client = MagicMock()
-    mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
-    mock_client_class.return_value = mock_client
-    
-    with patch.dict('os.environ', {'GEMINI_API_KEY': 'test_key'}):
-        agent = NLPAgent()
-        states = await agent.extract_states(None, "Some text about Jalisco and Nuevo Leon.")
-        
+    agent = NLPAgent()
+    states = await agent.extract_states(mock_session, "Some text about Jalisco and Nuevo Leon.", title="News in Jalisco", country="mx")
     assert "Jalisco" in states
     assert "Nuevo León" in states
+
