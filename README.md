@@ -13,6 +13,10 @@
   [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4.17-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
   [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
+  <br/>
+  
+  [![Interactive Demo](https://img.shields.io/badge/🌐_View_Interactive_Documentation_%26_Demo-0052FF?style=for-the-badge)](https://your-username.github.io/ai-news-explorer/)
+
   <p align="center">
     <a href="#-overview">Overview</a> •
     <a href="#-preview--screenshots">Screenshots</a> •
@@ -210,5 +214,5 @@ pytest tests/ -v
 ---
 
 <div align="center">
-  <sub>Built with ❤️ for intelligent data exploration.</sub>
-</div>\n
+  <sub>Happy scraping!</sub>
+</div>

@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI News Explorer</title>
+<link rel="icon" type="image/svg+xml" href="./static/img/favicon.svg">
+<link rel="stylesheet" href="./static/css/output.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+        .custom-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .custom-shadow-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); transition: all 0.2s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+        
+        .row-readonly {
+            opacity: 0.6;
+            color: #6b7280;
+        }
+        .row-dimmed {
+            opacity: 0.4;
+            filter: grayscale(50%);
+            pointer-events: none;
+            transition: opacity 0.3s ease, filter 0.3s ease;
+        }
+
+        /* Chat Markdown Content & Table Styling */
+        .chat-markdown {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.5;
+        }
+        .chat-markdown table {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            border-collapse: collapse;
+            margin: 0.6rem 0;
+            font-size: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        .chat-markdown thead {
+            background-color: #f1f5f9;
+        }
+        .chat-markdown th {
+            padding: 0.45rem 0.65rem;
+            font-weight: 600;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .chat-markdown td {
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #e2e8f0;
+            vertical-align: top;
+            min-width: 90px;
+        }
+        .chat-markdown tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .chat-markdown ul, .chat-markdown ol {
+            margin: 0.4rem 0 0.4rem 1.2rem;
+            padding-left: 0;
+            list-style-type: disc;
+        }
+        .chat-markdown ol {
+            list-style-type: decimal;
+        }
+        .chat-markdown li {
+            margin: 0.2rem 0;
+        }
+        .chat-markdown p {
+            margin: 0.35rem 0;
+        }
+        .chat-markdown p:first-child {
+            margin-top: 0;
+        }
+        .chat-markdown p:last-child {
+            margin-bottom: 0;
+        }
+        .chat-markdown code {
+            background: #f1f5f9;
+            padding: 0.15rem 0.3rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        .chat-markdown pre {
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.75rem;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen text-on-surface font-body-md antialiased">
+<!-- TopNavBar -->
+<header class="bg-surface docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-sm md:px-margin-desktop py-xs max-w-[1440px] mx-auto border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<!-- <img src="./static/img/favicon.svg" alt="AI News Explorer Logo" class="w-8 h-8 rounded-lg shadow-sm" /> -->
+<span class="text-title-md font-title-md tracking-tight text-on-background font-normal">
+  AI News 
+  <span class="font-bold"><span style="color:#4285F4">E</span><span style="color:#EA4335">x</span><span style="color:#FBBC04">p</span><span style="color:#4285F4">l</span><span style="color:#34A853">o</span><span style="color:#EA4335">r</span><span style="color:#FBBC04">e</span><span style="color:#4285F4">r</span></span>
+</span>
+</div>
+<div class="relative flex-1 max-w-2xl mx-lg" id="searchBarContainer">
+<div id="searchBarWrapper" class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 custom-shadow border border-white/40 focus-within:ring-2 focus-within:ring-primary-container/50 focus-within:border-primary-container transition-all">
+<button class="material-symbols-outlined text-on-surface-variant mr-2 select-none hover:text-primary transition-colors" data-icon="search" onclick="fetchDiscovery()" type="button">search</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/70 py-1 outline-none" id="mainSearchInput" placeholder="Search topics, locations, and sources..." data-i18n="searchPlaceholder" type="text" maxlength="200"/>
+<button class="flex items-center justify-center p-1 hover:bg-surface-container-high rounded-full transition-colors ml-2" id="searchFilterBtn">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="arrow_drop_down">arrow_drop_down</span>
+</button>
+</div>
+<p id="search-warning" class="hidden text-red-500 text-sm mt-2">Please enter both a keyword and the quantity of news to search.</p>
+<div class="absolute top-full left-0 mt-2 w-full bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 hidden" id="filterDropdown" style="z-index: 10000;">
+<div class="grid grid-cols-2 gap-md">
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="secondaryKeywords">Secondary Keywords</label>
+<div class="relative">
+<input id="secondaryInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. AI, Machine Learning" type="text" maxlength="200"/>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
+</div>
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="excludeWords">Exclude Words</label>
+<div class="relative">
+<input id="excludeInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. crypto, nft" type="text" maxlength="200"/>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
+</div>
+<div class="col-span-2 flex gap-md items-end">
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="dateRange">Date Range</label>
+<div class="relative">
+<input type="text" id="dateRange" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="Select dates..." data-i18n="selectDates" readonly>
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
+</div>
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="domainFilter">Domain filter</label>
+<div class="relative">
+<input type="text" id="domainInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" placeholder="e.g. .com, .gov, bbc.com" maxlength="150">
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
+</div>
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="quantity">Quantity</label>
+<div class="relative">
+<input type="number" id="nqueriesInput" class="w-full bg-surface-container rounded-md px-3 py-2 pr-8 text-body-md border-transparent focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" min="1" max="50" placeholder="10">
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant hover:text-primary cursor-pointer hidden clear-btn" style="font-size: 20px;">close</span>
+</div>
+</div>
+<div class="flex-1">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-1" data-i18n="country">Country</label>
+<div id="countrySegmentedControl" class="flex w-full bg-surface-container rounded-md p-1 border border-transparent">
+    <!-- Dynamic pill toggles will be injected here -->
+</div>
+</div>
+</div>
+<div class="col-span-2 flex justify-end gap-2 mt-2">
+<button class="px-4 py-2 text-primary font-medium hover:bg-primary-container/10 rounded-full transition-colors text-body-md" id="closeFilterBtn" data-i18n="cancel">Cancel</button>
+<button class="px-4 py-2 bg-primary-container text-on-primary font-medium rounded-full hover:bg-primary transition-colors text-body-md custom-shadow" id="applyFiltersBtn" onclick="fetchDiscovery()" data-i18n="applyFilters">Apply Filters</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2" id="actionButtons">
+<button id="exportExcelBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="exportAll()"><span class="material-symbols-outlined">output</span> <span data-i18n="export">Export</span></button>
+<button id="mapearBtn" class="hidden flex items-center gap-2 px-4 py-2 bg-[#f1f4fa] text-[#414754] border border-[#dfe3e8] rounded-full hover:bg-[#e5e8ee] transition-colors" onclick="startStreamMapping()"><span class="material-symbols-outlined">map</span> <span data-i18n="extractLocations">Extract Locations</span></button>
+<div class="relative">
+  <button id="settingsBtn" onclick="document.getElementById('settingsDropdown').classList.toggle('hidden')" class="p-2 hover:bg-surface-container-low transition-colors duration-200 rounded-full text-on-surface-variant flex items-center justify-center" title="Settings">
+    <span class="material-symbols-outlined" data-icon="settings">settings</span>
+  </button>
+  <div id="settingsDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 hidden p-3 z-50">
+    <div>
+      <label class="text-xs font-semibold text-on-surface-variant block mb-1.5" data-i18n="language">Language</label>
+      <select id="languageSelect" onchange="changeLanguage(this.value)" class="w-full bg-surface-container border border-gray-200 rounded-lg py-1.5 px-2.5 text-sm outline-none cursor-pointer text-on-surface">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</header>
+
+<div id="progressContainer" class="hidden max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-4 transition-opacity duration-500 opacity-0">
+    <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px] animate-spin" id="progressSpinner">sync</span>
+                <span id="progressStatusText" class="text-label-md font-medium text-on-surface">Initializing...</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-surface-container px-3 py-1.5 rounded-md">
+                <span class="material-symbols-outlined text-on-surface-variant text-[16px]">timer</span>
+                <span id="progressTimer" class="text-label-sm font-mono text-on-surface-variant">00:00</span>
+            </div>
+        </div>
+        <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-primary transition-all duration-300 ease-out w-0"></div>
+        </div>
+    </div>
+</div>
+
+
+    <nav class="bg-surface border-b border-outline-variant/30">
+<div class="flex gap-lg items-center w-full px-sm md:px-margin-desktop py-0 max-w-[1440px] mx-auto overflow-x-auto whitespace-nowrap">
+<button id="tab-main" class="text-primary border-b-2 border-primary pb-3 pt-3 font-medium flex items-center gap-2 transition-all" onclick="switchTab('main')">
+<span class="text-body-md font-body-md" data-i18n="mainSearch">Main Search</span>
+</button>
+<button id="tab-analytics" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('analytics')">
+<span class="text-body-md font-body-md" data-i18n="analyticsMaps">Analytics &amp; Maps</span>
+</button>
+<button id="tab-history" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('history')">
+<span class="text-body-md font-body-md" data-i18n="history">History</span>
+</button>
+<button id="tab-jobs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('jobs')">
+<span class="text-body-md font-body-md" data-i18n="jobs">Jobs</span>
+</button>
+<button id="tab-docs" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('docs')">
+<span class="text-body-md font-body-md" data-i18n="techDocs">Technical Documentation</span>
+</button>
+<button id="tab-manual" class="text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all pb-3 pt-3 flex items-center gap-2" onclick="switchTab('manual')">
+<span class="text-body-md font-body-md" data-i18n="userManual">User Manual</span>
+</button>
+</div>
+</nav>
+    <main id="dashboard" class="w-full max-w-[1440px] mx-auto px-sm md:px-margin-desktop py-lg">
+    
+    
+    <!-- TAB 1: MAIN SEARCH (News Feed) -->
+    <div id="view-main" class="flex flex-col gap-md w-full">
+        <!-- Full-width Header -->
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="newsSummary">News Summary</h1>
+            <p class="text-body-md text-on-surface-variant" id="news-summary-subtitle" data-i18n="noDates">No dates available</p>
+        </div>
+
+        <!-- 2-Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start w-full">
+            <!-- Left: Top Stories (2 most recent) -->
+            <div class="lg:col-span-8 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 w-full h-full">
+                    <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2 mb-md">
+                        <span data-i18n="recentNews">Recent News</span> <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+                    </h2>
+                    <div id="articlesFeed" class="flex flex-col gap-md w-full">
+                        <!-- Top 2 cards render here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Right: Full paginated feed + filters -->
+            <div class="lg:col-span-4 flex flex-col gap-lg w-full min-h-[400px]">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/40 flex flex-col w-full" style="max-height: 80vh;">
+                    <div class="p-md border-b border-outline-variant/20 flex items-center justify-between flex-shrink-0">
+                        <h2 class="text-title-md font-title-md text-primary-container flex items-center gap-2">
+                            <span data-i18n="fullFeed">Full Feed</span>
+                        </h2>
+                        <div class="flex items-center gap-2 relative">
+                            <span id="feedPaginationInfo" class="text-label-md text-on-surface-variant"></span>
+                            <button id="feedFilterClearBtn" onclick="clearFeedFilters()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hidden" title="Clear filters">
+                                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                            </button>
+                            <button id="feedFilterToggleBtn" onclick="toggleFeedFilterPopover()" class="p-1.5 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Filter feed">
+                                <span class="material-symbols-outlined text-[18px]">tune</span>
+                            </button>
+                            <!-- Filter Popover -->
+                            <div id="feedFilterPopover" class="hidden absolute right-0 top-full mt-2 w-72 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg z-50 p-md">
+                                <!-- Date Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="dateLabel">Date</p>
+                                    <input type="text" id="feedDateFilter" class="w-full bg-surface-container rounded-md px-2 py-1.5 text-body-md border border-outline-variant/30 focus:border-primary-container outline-none cursor-pointer" placeholder="Select dates..." data-i18n="selectDates" readonly>
+                                </div>
+                                <!-- Source Filter -->
+                                <div class="mb-3">
+                                    <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="sourceLabel">Source</p>
+                                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                        <input type="checkbox" id="feedSourceSelectAll" onchange="feedSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
+                                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                    </label>
+                                    <div id="feedSourceCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                </div>
+                                <!-- State Filter — hidden until states exist -->
+                                <div id="feedStateFilterSection" class="hidden">
+                                    <div class="border-t border-outline-variant/10 pt-3 mb-3">
+                                        <p class="text-label-md font-label-md text-on-surface-variant uppercase mb-2" data-i18n="stateLabel">State</p>
+                                        <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                                            <input type="checkbox" id="feedStateSelectAll" onchange="feedSelectAll('State', this.checked)" class="w-3.5 h-3.5">
+                                            <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                                        </label>
+                                        <div id="feedStateCheckboxes" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant/10">
+                                    <button onclick="clearFeedFilters()" class="px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors" data-i18n="clearBtn">Clear</button>
+                                    <button onclick="toggleFeedFilterPopover()" class="px-3 py-1 text-xs bg-primary-container text-on-primary rounded-full hover:bg-primary transition-colors" data-i18n="doneBtn">Done</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Scrollable list -->
+                    <div id="fullFeedList" class="flex-1 overflow-y-auto divide-y divide-outline-variant/10">
+                        <!-- paginated cards render here -->
+                    </div>
+                    <!-- Pagination controls -->
+                    <div class="flex items-center justify-between px-md py-sm border-t border-outline-variant/10 flex-shrink-0">
+                        <button id="feedPrevBtn" onclick="feedPageChange(-1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="prevBtn">← Prev</span></button>
+                        <button id="feedNextBtn" onclick="feedPageChange(1)" class="px-3 py-1 text-body-md text-primary hover:bg-primary-container/10 rounded-full transition-colors"><span data-i18n="nextBtn">Next →</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- TAB 2: ANALYTICS & MAPS -->
+    <div id="view-analytics" class="hidden flex flex-col gap-lg w-full">
+
+        <!-- Power BI-style Filter Toolbar -->
+        <div class="bg-surface-container-lowest rounded-xl border border-white/40 custom-shadow px-md py-sm flex flex-wrap items-center gap-3 w-full" style="position:relative; z-index:40;">
+            <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex-shrink-0" data-i18n="filters">Filters</span>
+
+            <!-- Date filter dropdown -->
+            <div class="relative w-48">
+                <input type="text" id="analyticsDateFilter" class="w-full bg-surface-container border border-outline-variant/30 text-body-md text-on-surface rounded-full px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary-container cursor-pointer text-sm" placeholder="Select dates..." data-i18n="selectDates" readonly>
+            </div>
+
+            <!-- States multi-select popover -->
+            <div class="relative" id="analyticsStateDropdownWrap">
+                <button onclick="toggleAnalyticsDropdown('State')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsStateTrigger">
+                    <span id="analyticsStateTriggerLabel" data-i18n="allStates">All States</span>
+                    <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
+                </button>
+                <div id="analyticsStateDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
+                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                        <input type="checkbox" id="analyticsStateSelectAll" onchange="analyticsSelectAll('State', this.checked)" class="w-3.5 h-3.5">
+                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                    </label>
+                    <div id="analyticsStateCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <!-- Sources multi-select popover -->
+            <div class="relative" id="analyticsSourceDropdownWrap">
+                <button onclick="toggleAnalyticsDropdown('Source')" class="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface rounded-full px-3 py-1.5 text-sm hover:border-primary-container transition-colors" id="analyticsSourceTrigger">
+                    <span id="analyticsSourceTriggerLabel" data-i18n="allSources">All Sources</span>
+                    <span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
+                </button>
+                <div id="analyticsSourceDropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-surface-container-lowest rounded-xl border border-white/40 shadow-lg p-3" style="z-index:9999;">
+                    <label class="flex items-center gap-2 py-1 px-1 hover:bg-surface-container-low rounded cursor-pointer border-b border-outline-variant/10 mb-1">
+                        <input type="checkbox" id="analyticsSourceSelectAll" onchange="analyticsSelectAll('Source', this.checked)" class="w-3.5 h-3.5">
+                        <span class="text-xs font-medium text-on-surface-variant">Select All / Deselect All</span>
+                    </label>
+                    <div id="analyticsSourceCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div id="activeRunsContainer" class="flex flex-wrap items-center gap-2"></div>
+            
+            <div class="flex-1"></div>
+
+            <!-- Reset Filters -->
+            <button id="analyticsResetBtn" onclick="resetAnalyticsFilters()" class="hidden flex items-center gap-1.5 px-3 py-1.5 text-sm text-on-surface-variant hover:text-primary border border-outline-variant/30 rounded-full hover:border-primary-container transition-colors">
+                <span class="material-symbols-outlined text-[16px]">filter_alt_off</span>
+                Reset Filters
+            </button>
+        </div>
+
+        <!-- Map + KPI Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch w-full">
+            <!-- Map (left, 8/12) -->
+            <div class="lg:col-span-8 bg-white/90 backdrop-blur-md rounded-xl shadow-sm overflow-hidden relative w-full" id="mapWrapper" style="height: 480px; isolation: isolate;">
+                <div id="map" class="w-full h-full" style="z-index: 1;"></div>
+                <!-- Center map button -->
+                <button onclick="centerMap()" title="Center map" style="position:absolute; top:12px; right:12px; z-index:500;" class="flex items-center gap-1.5 bg-surface-container-lowest border border-outline-variant/30 text-primary rounded-full px-3 py-1.5 text-xs font-medium hover:bg-surface-container custom-shadow transition-colors">
+                    <span class="material-symbols-outlined text-[15px]">my_location</span>
+                    Center
+                </button>
+            </div>
+
+            <!-- KPI Column (right, 4/12) — single vertical stack -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#4285F4]">
+                    <div class="text-4xl font-bold text-primary mb-1" id="kpiTotal">0</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="articles">Articles</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#EA4335]">
+                    <div class="text-4xl font-bold text-primary mb-1" id="kpiCoverage">0</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="locations">Locations</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#FBBC04]">
+                    <div class="text-2xl font-bold text-primary mb-1 text-center leading-tight" id="kpiEpicenter">—</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="epicenter">Epicenter</div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex-1 flex flex-col justify-center items-center transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer !border-t-4 !border-t-[#34A853]">
+                    <div class="text-xl font-bold text-primary mb-1 text-center leading-tight line-clamp-2" id="kpiTopSource">—</div>
+                    <div class="text-xs text-on-surface-variant uppercase font-medium tracking-wide" data-i18n="topSource">Top Source</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+            <div id="sourceCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold" data-i18n="topSources">Top Sources</h3>
+                    <button onclick="downloadChartCard('sourceCard', 'chart_sources.png')" title="Download Sources Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="sourcesBarCanvas"></canvas>
+                </div>
+            </div>
+            <div id="statesCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold" data-i18n="topStates">Top States</h3>
+                    <button onclick="downloadChartCard('statesCard', 'chart_states.png')" title="Download States Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="statesBarCanvas"></canvas>
+                </div>
+            </div>
+            <div id="timelineCard" class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40 flex flex-col transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-1 active:scale-95 cursor-pointer" style="height: 350px;">
+                <div class="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h3 class="text-sm font-semibold" data-i18n="timeline">Timeline</h3>
+                    <button onclick="downloadChartCard('timelineCard', 'chart_timeline.png')" title="Download Timeline Chart" class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant hover:text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 relative">
+                    <canvas id="timelineCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-history" class="hidden flex flex-col gap-lg">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md flex-wrap gap-3">
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="executionHistory">Execution History</h2>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="mapSelectedBtn" onclick="mapSelectedHistory()" class="hidden px-3 py-1.5 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">map</span> <span id="mapSelectedCount">Map Selected (0)</span>
+                    </button>
+                    <input type="text" id="historySearchInput" oninput="onHistoryFilterChange()" placeholder="Search history..." data-i18n="searchHistory" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    
+                    <select id="historyStatusFilter" onchange="onHistoryFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                        <option value="ALL" data-i18n="allStatuses">All Statuses</option>
+                        <option value="ANALYZED" data-i18n="analyzed">Analyzed</option>
+                        <option value="RAW" data-i18n="rawArticles">Raw Articles</option>
+                    </select>
+                    
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md text-body-md text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-colors select-none">
+                        <input type="checkbox" id="historyHideZeroCheck" onchange="onHistoryFilterChange()" class="accent-primary w-4 h-4">
+                        <span data-i18n="hide0Articles">Hide 0 articles</span>
+                    </label>
+
+                    <button onclick="toggleHistoryColumns()" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-md text-on-surface-variant transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[18px]">view_column</span> <span data-i18n="columns">Columns</span>
+                    </button>
+
+                    <button onclick="loadHistory()" class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md hover:bg-surface-container-high transition-colors text-on-surface">
+                        <span class="material-symbols-outlined text-sm">refresh</span> <span data-i18n="refresh">Refresh</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="historyColumnToggle" class="hidden mb-4 p-3 bg-surface-container rounded-md flex flex-wrap gap-4 text-sm text-on-surface-variant">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(1)" class="accent-primary"> <span data-i18n="searchTerm">Search Term</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(2)" class="accent-primary"> <span data-i18n="filters">Filters</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(3)" class="accent-primary"> <span data-i18n="scrapedOn">Scraped On</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(4)" class="accent-primary"> <span data-i18n="articles">Articles</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked onchange="updateHistoryCols(5)" class="accent-primary"> <span data-i18n="actions">Actions</span></label>
+            </div>
+
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse" id="historyTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
+                            <th class="py-2 px-3 w-10 text-center">
+                                <input type="checkbox" id="historyMasterCheckbox" onchange="toggleAllHistorySelection()" class="accent-primary w-4 h-4 cursor-pointer">
+                            </th>
+                            <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('search_term')">
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-history-search_term" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-2 px-3" data-i18n="filters">Filters</th>
+                            <th class="py-2 px-3 cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('scraped_at')">
+                                <div class="flex items-center gap-1"><span data-i18n="scrapedOn">Scraped On</span> <span id="sort-icon-history-scraped_at" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                            </th>
+                            <th class="py-2 px-3 text-center cursor-pointer hover:text-primary transition-colors" onclick="toggleHistorySort('total_articles')">
+                                <div class="flex items-center justify-center gap-1"><span data-i18n="totalArticles">Total Articles</span> <span id="sort-icon-history-total_articles" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-2 px-3 text-right" data-i18n="actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="text-body-md text-on-surface">
+                        <!-- History rows injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- History Pagination Footer -->
+            <div id="historyPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
+                <div class="flex items-center gap-2">
+                    <span data-i18n="show">Show</span>
+                    <select id="historyPageSizeSelect" onchange="onHistoryPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span data-i18n="entriesPerPage">entries per page</span>
+                </div>
+                <div id="historyPageInfo" class="font-medium text-xs sm:text-sm">
+                    Showing 0-0 of 0 entries
+                </div>
+                <div id="historyPaginationButtons" class="flex items-center gap-1">
+                    <!-- Dynamic pagination buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="view-jobs" class="hidden flex flex-col gap-lg w-full">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-sm p-md border border-white/40">
+            <div class="flex justify-between items-center mb-md flex-wrap gap-3">
+                <h2 class="text-title-md font-title-md text-primary-container" data-i18n="bgJobsQueue">Background Jobs Queue</h2>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="jobsSearchInput" oninput="onJobsFilterChange()" placeholder="Search jobs..." data-i18n="searchJobs" class="bg-surface-container rounded-md px-3 py-1.5 text-body-md border-transparent focus:border-primary outline-none">
+                    <select id="jobsStatusFilter" onchange="onJobsFilterChange()" class="bg-surface-container rounded-md pl-3 pr-8 py-1.5 text-body-md border-transparent focus:border-primary outline-none text-on-surface-variant cursor-pointer">
+                        <option value="ALL" data-i18n="allJobs">All Jobs</option>
+                        <option value="ACTIVE">Active (QUEUED / ANALYZING)</option>
+                        <option value="READY">Ready for LLM (SCRAPED)</option>
+                        <option value="COMPLETED" data-i18n="completed">Completed</option>
+                    </select>
+                    <button onclick="fetchJobs()" class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md hover:bg-surface-container-high transition-colors text-on-surface">
+                        <span class="material-symbols-outlined text-sm">refresh</span> <span data-i18n="refresh">Refresh</span>
+                    </button>
+                </div>
+            </div>
+            <div class="w-full overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="jobsTable">
+                    <thead>
+                        <tr class="border-b border-outline-variant/30 text-label-md text-on-surface-variant select-none">
+                            <th class="py-3 px-4 font-medium" data-i18n="jobId">Job ID</th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('query')">
+                                <div class="flex items-center gap-1"><span data-i18n="searchTerm">Search Term</span> <span id="sort-icon-jobs-query" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('status')">
+                                <div class="flex items-center gap-1"><span data-i18n="status">Status</span> <span id="sort-icon-jobs-status" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('end_time')">
+                                <div class="flex items-center gap-1"><span data-i18n="lastUpdated">Last Updated</span> <span id="sort-icon-jobs-end_time" class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium cursor-pointer hover:text-primary transition-colors" onclick="toggleJobsSort('elapsed')">
+                                <div class="flex items-center gap-1"><span data-i18n="elapsedTime">Elapsed Time</span> <span id="sort-icon-jobs-elapsed" class="material-symbols-outlined text-[16px] opacity-40">unfold_more</span></div>
+                            </th>
+                            <th class="py-3 px-4 font-medium" data-i18n="actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody" class="text-body-md text-on-surface">
+                        <!-- Dynamic Jobs -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Jobs Pagination Footer -->
+            <div id="jobsPaginationFooter" class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-outline-variant/30 text-sm text-on-surface-variant">
+                <div class="flex items-center gap-2">
+                    <span data-i18n="show">Show</span>
+                    <select id="jobsPageSizeSelect" onchange="onJobsPageSizeChange(this.value)" class="bg-surface-container border border-outline-variant/30 rounded pl-2.5 pr-8 py-1 outline-none text-on-surface cursor-pointer text-sm">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span data-i18n="entriesPerPage">entries per page</span>
+                </div>
+                <div id="jobsPageInfo" class="font-medium text-xs sm:text-sm">
+                    Showing 0-0 of 0 entries
+                </div>
+                <div id="jobsPaginationButtons" class="flex items-center gap-1">
+                    <!-- Dynamic pagination buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+        
+    <!-- TAB 3: TECHNICAL DOCUMENTATION -->
+    <div id="view-docs" class="hidden flex-col gap-md w-full">
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="techDocsTitle">Technical Documentation</h1>
+            <p class="text-body-md text-on-surface-variant" data-i18n="techDocsSubtitle">Arquitectura y especificaciones técnicas del ecosistema.</p>
+        </div>
+
+        <div class="flex flex-col xl:flex-row gap-lg">
+            
+            <aside class="w-full xl:w-[280px] flex-shrink-0">
+                <div class="bg-surface-container-lowest rounded-2xl p-md custom-shadow border border-white/40 sticky top-8">
+                    <nav class="flex flex-col gap-base text-body-md font-medium">
+                        <a href="#topology" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">account_tree</span> <span data-i18n="techNavTopology">Topología</span></a>
+                        <a href="#scraper" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">travel_explore</span> <span data-i18n="techNavScraper">Web Scraper</span></a>
+                        <a href="#etl" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">memory</span> <span data-i18n="techNavEtl">Pipeline ETL</span></a>
+                        <a href="#datamodel" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">database</span> <span data-i18n="techNavDatamodel">Modelo de Datos</span></a>
+                        <a href="#llm" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">smart_toy</span> <span data-i18n="techNavLlm">Modelos (LLMs)</span></a>
+                        <a href="#chatbot_tech" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">chat</span> <span data-i18n="techNavChatbot">AI Chatbot</span></a>
+                        <a href="#catalogs" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">map</span> <span data-i18n="techNavCatalogs">Catálogos</span></a>
+                        <a href="#deployment" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">cloud_upload</span> <span data-i18n="techNavDeployment">Despliegue</span></a>
+                    </nav>
+                </div>
+            </aside>
+            
+            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-2xl p-lg lg:p-xl custom-shadow border border-white/40">
+                
+                <section id="topology" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec1Title">1. Topología de la Arquitectura</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec1Desc">La solución se apoya en un ecosistema de microservicios Dockerizados que orquestan el ciclo de vida del dato analítico.</p>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto">
+    <div class="min-w-[600px] flex flex-col items-center gap-8">
+        <div class="flex items-center gap-2 px-6 py-3 bg-white border border-outline-variant rounded-full shadow-sm">
+            <span class="material-symbols-outlined text-primary">devices</span>
+            <span class="font-medium text-on-surface">Client Browser (Vanilla JS + Tailwind)</span>
+        </div>
+        <div class="flex flex-col items-center -my-2 text-outline">
+            <span class="material-symbols-outlined">arrow_downward</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">REST API / SSE</span>
+            <span class="material-symbols-outlined">arrow_downward</span>
+        </div>
+        <div class="relative w-full border-2 border-dashed border-primary/20 rounded-2xl p-6 bg-primary/5">
+            <div class="absolute -top-3 left-6 bg-surface-container-lowest px-2 text-xs font-bold uppercase tracking-wider text-primary">Docker Compose Network</div>
+            <div class="grid grid-cols-3 gap-6">
+                <div class="flex flex-col items-center gap-3 p-4 bg-white border border-outline-variant rounded-xl shadow-sm">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px]">public</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="font-bold text-on-surface text-sm">Flask Web</div>
+                        <div class="text-xs text-on-surface-variant">Orchestration API</div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3 p-4 bg-white border border-outline-variant rounded-xl shadow-sm">
+                    <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px]">account_tree</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="font-bold text-on-surface text-sm">Dagster</div>
+                        <div class="text-xs text-on-surface-variant">Daemon &amp; Webserver</div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3 p-4 bg-white border border-outline-variant rounded-xl shadow-sm">
+                    <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px]">database</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="font-bold text-on-surface text-sm">PostgreSQL</div>
+                        <div class="text-xs text-on-surface-variant">OLAP &amp; History DB</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex flex-col items-center -my-2 text-outline">
+            <span class="material-symbols-outlined">arrow_downward</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">External APIs</span>
+            <span class="material-symbols-outlined">arrow_downward</span>
+        </div>
+        <div class="grid grid-cols-2 gap-6 min-w-[400px]">
+             <div class="flex items-center gap-2 px-6 py-3 bg-white border border-outline-variant rounded-full shadow-sm justify-center">
+                <span class="material-symbols-outlined text-green-600">rss_feed</span>
+                <span class="font-medium text-on-surface">News RSS</span>
+            </div>
+            <div class="flex items-center gap-2 px-6 py-3 bg-white border border-outline-variant rounded-full shadow-sm justify-center">
+                <span class="material-symbols-outlined text-orange-600">psychology</span>
+                <span class="font-medium text-on-surface">LLM API</span>
+            </div>
+        </div>
+    </div>
+</div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techFlaskTitle">Flask (Web):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techFlaskDesc">Proporciona endpoints RESTful asíncronos y sirve la interfaz frontend construida con Tailwind CSS y Vanilla JS.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techPgTitle">PostgreSQL (OLAP Storage):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techPgDesc">Motor persistente central, configurado con esquemas transaccionales para raw data y tablas relacionales orientadas a análisis.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDagsterWebTitle">Dagster Webserver (UI):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDagsterWebDesc">Expone el panel de control gráfico de Dagster, permitiendo trazar linaje de datos y monitorear el estado de los runs en tiempo real.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDagsterDaemonTitle">Dagster Daemon:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDagsterDaemonDesc">Coordinador de ejecución en background que maneja la persistencia de colas, retries y schedulers.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="scraper" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec2TitleScraper">2. Motor de Scraping y Extracción</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec2DescScraper">El sistema implementa una capa de extracción web altamente concurrente y resistente a bloqueos automatizados, encargada de la recolección del texto completo y metadatos de las noticias.</p>
+                    
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperRSSTitle">Descubrimiento Inicial (Google News RSS):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperRSSDesc">La fase inicial de descubrimiento explota los feeds RSS de Google News para obtener metadatos estructurados, URLs base y deduplicación inicial antes de proceder al web scraping profundo del artículo original.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperEvasionTitle">Evasión de Bloqueos (curl_cffi / Playwright):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperEvasionDesc">Se emplea <code>curl_cffi</code> para suplantar firmas TLS y huellas de navegadores, esquivando protecciones anti-bot de forma ligera. Para sitios con renderizado dinámico intenso, se orquesta un headless browser con <code>Playwright</code>.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperParseTitle">Parseo y Limpieza (Trafilatura & BeautifulSoup):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperParseDesc">La extracción algorítmica principal es manejada por <code>Trafilatura</code> para discernir de forma heurística el cuerpo del artículo descartando boilerplate. <code>BeautifulSoup</code> actúa como motor de respaldo y para la obtención de metadatos estructurales como <code>og:image</code>.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techScraperConcurrencyTitle">Concurrencia Asíncrona (ThreadPoolExecutor):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techScraperConcurrencyDesc">Dado que las operaciones son intensivas en I/O de red, se implementa multiplexión mediante <code>ThreadPoolExecutor</code> y corrutinas asíncronas, permitiendo el scrapeo simultáneo de múltiples URLs sin bloquear el Event Loop principal de Flask.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="etl" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec2Title">3. Pipeline ETL y Orquestación (Dagster)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec2Desc">La lógica de negocio asíncrona está encapsulada en <em>Software-Defined Assets (SDAs)</em> de Dagster (<code>etl/definitions.py</code>). Este orquestador coordina las recolecciones de información y los motores de inferencia masiva.</p>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto">
+    <div class="min-w-[700px] flex items-center justify-between gap-2">
+        <div class="flex flex-col items-center gap-2 p-4 bg-white border border-outline-variant rounded-xl shadow-sm flex-1">
+            <span class="material-symbols-outlined text-blue-600 text-3xl">rss_feed</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-center">RSS Ingest</span>
+        </div>
+        <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+        <div class="flex flex-col items-center gap-2 p-4 bg-white border border-outline-variant rounded-xl shadow-sm flex-1">
+            <span class="material-symbols-outlined text-purple-600 text-3xl">language</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-center">Web Scraping</span>
+        </div>
+        <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+        <div class="flex flex-col items-center gap-2 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl shadow-sm flex-1">
+            <span class="material-symbols-outlined text-orange-600 text-3xl">auto_awesome</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-center text-orange-800">LLM Extract</span>
+        </div>
+        <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+        <div class="flex flex-col items-center gap-2 p-4 bg-white border border-outline-variant rounded-xl shadow-sm flex-1">
+            <span class="material-symbols-outlined text-green-600 text-3xl">analytics</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-center">OLAP Load</span>
+        </div>
+    </div>
+</div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec2Body">El flujo inicia extrayendo metadatos no procesados, los cuales se agrupan y paralelizan hacia los nodos computacionales (LLM). Si ocurre una falla irrecuperable en un lote, el sistema descarta los registros en una <strong class="text-on-background font-medium">Dead Letter Queue (DLQ)</strong> local para inspección manual, permitiendo que el pipeline principal continúe sin afectar la integridad del DAG.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="datamodel" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec3Title">4. Modelo de Datos</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec3Desc">El almacén implementa un esquema en estrella (OLAP Star Schema) diseñado para maximizar el rendimiento (throughput) de las lecturas analíticas en el frontend.</p>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto flex justify-center">
+    <div class="min-w-[500px] w-full max-w-2xl relative flex items-center justify-center" style="height: 320px;">
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;">
+            <line x1="25%" y1="25%" x2="50%" y2="50%" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4" />
+            <line x1="25%" y1="75%" x2="50%" y2="50%" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4" />
+            <line x1="75%" y1="25%" x2="50%" y2="50%" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4" />
+            <line x1="75%" y1="75%" x2="50%" y2="50%" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4" />
+        </svg>
+        <div class="absolute z-10 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl shadow-md flex flex-col items-center text-center" style="left: 50%; top: 50%; transform: translate(-50%, -50%);">
+            <span class="material-symbols-outlined text-indigo-700">dataset</span>
+            <span class="font-bold text-indigo-900 text-sm mt-1">fact_news_metrics</span>
+        </div>
+        <div class="absolute p-3 bg-white border border-outline-variant rounded-lg shadow-sm text-center" style="left: 15%; top: 15%; transform: translate(-50%, -50%);">
+            <span class="material-symbols-outlined text-gray-500 text-sm">calendar_month</span><br>
+            <span class="text-xs font-bold">dim_date</span>
+        </div>
+        <div class="absolute p-3 bg-white border border-outline-variant rounded-lg shadow-sm text-center" style="left: 15%; top: 85%; transform: translate(-50%, -50%);">
+            <span class="material-symbols-outlined text-gray-500 text-sm">newspaper</span><br>
+            <span class="text-xs font-bold">dim_source</span>
+        </div>
+        <div class="absolute p-3 bg-white border border-outline-variant rounded-lg shadow-sm text-center" style="left: 85%; top: 15%; transform: translate(-50%, -50%);">
+            <span class="material-symbols-outlined text-gray-500 text-sm">location_on</span><br>
+            <span class="text-xs font-bold">dim_entities</span>
+        </div>
+        <div class="absolute p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm text-center" style="left: 85%; top: 85%; transform: translate(-50%, -50%);">
+            <span class="material-symbols-outlined text-blue-600 text-sm">article</span><br>
+            <span class="text-xs font-bold">articles</span>
+        </div>
+    </div>
+</div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techFactTableTitle">fact_news_metrics:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techFactTableDesc">Tabla de hechos conteniendo la granularidad atómica por artículo (conteo de palabras, sentimiento).</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techDimTableTitle">Tablas de Dimensión:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techDimTableDesc"><code>dim_date</code>, <code>dim_source</code>, <code>dim_entities</code>.</span>
+                        </div>
+                    </div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec3Body">La ingesta utiliza lógica idempotente mediante operaciones <code>UPSERT</code> (<code>ON CONFLICT DO UPDATE</code> o <code>DO NOTHING</code>), garantizando que las reejecuciones del ETL no generen duplicados ni violaciones de primary keys.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="llm" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec4Title">5. Integración de Modelos (LLMs)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Desc">La inferencia semántica se fundamenta en un flujo híbrido tolerante a fallos a través de las SDKs de Groq y Gemini (Flash).</p>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto">
+    <div class="min-w-[650px] flex flex-col gap-6 items-center">
+        <div class="flex items-center justify-center gap-4 w-full">
+            <div class="bg-white p-3 rounded-xl border border-outline-variant shadow-sm w-48 text-center">
+                <span class="material-symbols-outlined text-blue-500 mb-1">text_snippet</span>
+                <div class="text-xs font-bold">Raw Article Text</div>
+            </div>
+            <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+            <div class="bg-orange-50 p-3 rounded-xl border-2 border-orange-200 shadow-sm w-48 text-center">
+                <span class="material-symbols-outlined text-orange-600 mb-1">psychology</span>
+                <div class="text-xs font-bold text-orange-800">LLM</div>
+                <div class="text-[10px] text-orange-600">Geo-Extraction Prompt</div>
+            </div>
+            <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+            <div class="bg-green-50 p-3 rounded-xl border border-green-200 shadow-sm w-48 text-center">
+                <span class="material-symbols-outlined text-green-600 mb-1">data_object</span>
+                <div class="text-xs font-bold text-green-800">JSON Output</div>
+                <div class="text-[10px] text-green-600">["Jalisco", "Colima"]</div>
+            </div>
+        </div>
+    </div>
+</div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</p>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="chatbot_tech" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec5Title">6. Asistente Conversacional (RAG)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec5Desc">El motor integra un asistente analítico avanzado que permite consultar el modelo relacional subyacente.</p>
+                    <div class="my-lg p-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 custom-shadow overflow-x-auto">
+    <div class="min-w-[650px] flex items-center justify-center gap-4">
+        <div class="flex flex-col items-center justify-center p-4 bg-white border border-outline-variant rounded-xl shadow-sm w-32">
+            <span class="material-symbols-outlined text-primary text-3xl">person</span>
+            <span class="font-bold text-xs mt-2 text-center">User Query</span>
+        </div>
+        <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+        <div class="flex flex-col items-center justify-center p-4 bg-blue-50 border-2 border-blue-200 rounded-xl shadow-sm flex-1 max-w-xs">
+            <span class="material-symbols-outlined text-blue-600 text-3xl">hub</span>
+            <span class="font-bold text-xs mt-2 text-blue-800 text-center">RAG Context Engine</span>
+            <span class="text-[10px] text-blue-600 text-center">Inject DB Metrics</span>
+        </div>
+        <span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+        <div class="flex flex-col items-center justify-center p-4 bg-orange-50 border-2 border-orange-200 rounded-xl shadow-sm flex-1 max-w-xs">
+            <span class="material-symbols-outlined text-orange-600 text-3xl">forum</span>
+            <span class="font-bold text-xs mt-2 text-orange-800 text-center">LLM</span>
+            <span class="text-[10px] text-orange-600 text-center">Markdown Response</span>
+        </div>
+    </div>
+</div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techSseTitle">Streaming API:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techSseDesc">Implementado vía Server-Sent Events (SSE) nativos en Flask para el renderizado asíncrono y progresivo de las respuestas en el frontend, evitando timeouts HTTP.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techContextTitle">Inyección de Contexto:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techContextDesc">El LLM recibe dinámicamente un volcado serializado de métricas y acceso a las ejecuciones históricas para responder utilizando la técnica Retrieval-Augmented Generation.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="catalogs" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec6Title">7. Capa de Catálogos (GeoJSON & i18n)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec6Desc">El sistema expone configuraciones modulares permitiendo escalar la plataforma horizontalmente sin modificar el código base.</p>
+                    <div class="w-full h-56 my-lg bg-surface-container border border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center text-outline hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[32px] mb-2 text-outline">image</span><span class="text-body-md font-medium tracking-wide" data-i18n="docImgPlaceholder">Diagrama / Captura</span></div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techGeoCacheTitle">Caché en Memoria (Geometrías):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techGeoCacheDesc">Las topologías territoriales se precargan (<code>geojson_cache.py</code>) desde <code>map_config.json</code> y archivos vectoriales estáticos, reduciendo dramáticamente el consumo de I/O en la renderización de Leaflet.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techI18nTitle">Internacionalización (i18n):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techI18nDesc">El frontend abstrae un diccionario inyectado que permite conmutar claves estáticas <code>data-i18n</code> en el DOM, así como traducciones dinámicas programáticas a través del método <code>i18n.t()</code>. Además, cuenta con un motor de traducción mediante expresiones regulares (<code>translateStep</code>) para localizar en tiempo real los mensajes emitidos por los jobs de backend asíncronos.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="deployment" class="scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="techSec7Title">8. Despliegue y Repositorio</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="techSec7Desc">El despliegue está contenerizado. Los comandos operativos principales son los siguientes:</p>
+                    <div class="bg-inverse-surface text-inverse-on-surface p-md rounded-xl font-label-md text-body-md leading-loose overflow-x-auto mt-lg shadow-inner">
+                        <pre><code># 1. Clonar el repositorio
+git clone &lt;repository_url&gt;
+cd google_news_scraping
+
+# 2. Configurar variables de entorno
+cp .env.template .env
+# Editar .env (DATABASE_URL y API Keys: GROQ, GEMINI)
+
+# 3. Construir y levantar servicios
+docker-compose up -d --build</code></pre>
+                    </div>
+                </section>
+                
+            </div>
+        </div>
+    </div>
+    
+    <!-- TAB 4: USER MANUAL -->
+    <div id="view-manual" class="hidden flex-col gap-md w-full">
+        <div class="mb-2">
+            <h1 class="text-headline-lg font-headline-lg text-on-background mb-1" data-i18n="userManualTitle">Manual de Usuario</h1>
+            <p class="text-body-md text-on-surface-variant" data-i18n="userManualSubtitle">Guía de operación de la plataforma AI News Explorer.</p>
+        </div>
+
+        <div class="flex flex-col xl:flex-row gap-lg">
+            
+            <aside class="w-full xl:w-[280px] flex-shrink-0">
+                <div class="bg-surface-container-lowest rounded-2xl p-md custom-shadow border border-white/40 sticky top-8">
+                    <nav class="flex flex-col gap-base text-body-md font-medium">
+                        <a href="#overview" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">menu_book</span> <span data-i18n="userNavOverview">Descripción</span></a>
+                        <a href="#search" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">search</span> <span data-i18n="userNavSearch">Búsqueda</span></a>
+                        <a href="#manual-dashboard" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">analytics</span> <span data-i18n="userNavDashboard">Dashboard</span></a>
+                        <a href="#manual-map" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">public</span> <span data-i18n="userNavMap">Mapa Interactivo</span></a>
+                        <a href="#chatbot" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">forum</span> <span data-i18n="userNavChatbot">Asistente AI</span></a>
+                        <a href="#history" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">history</span> <span data-i18n="userNavHistory">Historial</span></a>
+                        <a href="#settings" class="flex items-center gap-3 text-on-surface-variant hover:text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all"><span class="material-symbols-outlined text-[20px]">settings</span> <span data-i18n="userNavSettings">Configuración</span></a>
+                    </nav>
+                </div>
+            </aside>
+            
+            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-2xl p-lg lg:p-xl custom-shadow border border-white/40">
+                
+                <section id="overview" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec1Title">1. Descripción General</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec1Desc"><strong class="text-on-background font-medium">AI News Explorer</strong> es una plataforma de análisis de información y monitoreo de noticias. Te permite buscar cualquier tema de interés, recolectar las noticias más recientes al respecto, y obtener un análisis visual e inteligente del tono (positivo o negativo), la distribución geográfica y los conceptos clave abordados en los artículos.</p>
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual1.png" alt="Overview" class="w-full h-auto object-cover" />
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="search" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec2Title">2. Panel de Búsqueda y Filtros</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec2Desc">El primer paso es utilizar la barra principal superior. Escribe un término (ejemplo: "Elecciones" o "Inteligencia Artificial") y presiona el ícono de filtro para configurar parámetros avanzados:</p>
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual2.png" alt="Search Panel and Filters" class="w-full h-auto object-cover" />
+                    </div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userFilterSecWordsTitle">Palabras Secundarias:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userFilterSecWordsDesc">Obliga a que los resultados incluyan términos específicos.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userFilterExcludeTitle">Excluir Palabras:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userFilterExcludeDesc">Útil para limpiar el ruido (ej. si buscas "Apple", excluir "fruta").</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userFilterDateTitle">Rango de Fechas:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userFilterDateDesc">Delimita la antigüedad de la noticia.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userFilterDomainTitle">Filtro de Dominio:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userFilterDomainDesc">Restringe fuentes (ej. <code>.mx</code>, <code>bbc.com</code>).</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userFilterCountryTitle">Cantidad y País:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userFilterCountryDesc">Fija el límite máximo de resultados a extraer y la región que guiará el mapa.</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-primary-fixed-dim/30 border border-primary-fixed p-lg rounded-2xl flex gap-md text-on-primary-fixed mt-xl">
+                        <span class="material-symbols-outlined text-primary mt-1">info</span>
+                        <div>
+                            <p class="font-title-md text-[16px]" data-i18n="userWaitNoteTitle">Nota de Espera</p>
+                            <p class="mt-xs text-body-md opacity-90 leading-relaxed" data-i18n="userWaitNoteDesc">La recolección es un proceso asíncrono profundo. Las búsquedas de gran cantidad de noticias (ej. 50 resultados) requerirán un momento para procesar, leer e interpretar cada texto.</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="manual-dashboard" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec3Title">3. Dashboard Analítico y KPIs</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec3Desc">Una vez finalizada la extracción, la pestaña "Análisis y Mapas" muestra el resumen inteligente de los datos.</p>
+                    <!-- <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual3.png" alt="Maps" class="w-full h-auto object-cover" />
+                    </div> -->
+                    <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <div class="lg:col-span-8 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-white">
+                            <img src="./static/img/usermanual4.png" alt="Charts View" class="w-full h-auto object-contain" />
+                        </div>
+                        <div class="lg:col-span-4 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-surface-container-lowest">
+                            <img src="./static/img/usermanual4_1.png" alt="KPIs View" class="w-full h-auto object-contain" />
+                        </div>
+                    </div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userKpisTitle">Indicadores Clave (KPIs):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userKpisDesc">Tarjetas superiores que muestran el total de artículos evaluados, cuántos lograron mapearse a una zona y el "Tono Promedio" (un indicador que varía hacia el verde si las noticias son positivas, o hacia el rojo si son negativas).</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userPieTitle">Gráfico de Fuentes (Pastel):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userPieDesc">Visualiza qué periódicos o portales generaron la mayor cantidad de artículos sobre el tema.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userTimelineTitle">Evolución en el Tiempo:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userTimelineDesc">Gráfica de línea mostrando los picos de publicación de las noticias recolectadas.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="border-surface-variant/40 my-xl" />
+                
+                <section id="manual-map" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec4Title">4. Mapa Interactivo y Geolocalización</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec4Desc">La herramienta de mapa colorea los estados de un país (como México o Estados Unidos) según la cantidad de noticias que hacen mención a esa región específica.</p>
+                    <!-- <div class="my-lg grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <div class="lg:col-span-8 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-white">
+                            <img src="./static/img/usermanual4.png" alt="Charts View" class="w-full h-auto object-contain" />
+                        </div>
+                        <div class="lg:col-span-4 rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30 bg-surface-container-lowest">
+                            <img src="./static/img/usermanual4_1.png" alt="KPIs View" class="w-full h-auto object-contain" />
+                        </div>
+                    </div> -->
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual3.png" alt="Maps" class="w-full h-auto object-cover" />
+                    </div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userMapFilterTitle">Filtrado con clic:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userMapFilterDesc">Al hacer clic en un estado oscuro (con mucha actividad), la tabla de noticias a la derecha se filtrará instantáneamente para mostrar únicamente lo que ocurrió en ese lugar.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userMapExtractBtnTitle">Botón "Extraer Ubicaciones":</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userMapExtractBtnDesc">Es el paso clave de la plataforma. Una vez que tengas las noticias base, presiona este botón superior para que la Inteligencia Artificial lea el contenido, detecte ciudades o estados mencionados y encienda el mapa de calor. <br><br><strong>Nota:</strong> Este botón se oculta automáticamente si estás visualizando una búsqueda histórica que ya fue analizada y mapeada previamente.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="border-surface-variant/40 my-xl" />
+
+                <section id="chatbot" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec5Title">5. Asistente Inteligente (Chatbot)</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec5Desc">El panel colapsable del lado derecho contiene un asistente conversacional capaz de leer toda tu búsqueda actual.</p>
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual5.png" alt="Overview" class="w-full h-auto object-cover" />
+                    </div>
+                    <p class="mt-lg text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userChatbotBody">Puedes pedirle en lenguaje natural cosas como: <em>"Resume las noticias negativas relacionadas con la Ciudad de México"</em> o <em>"Crea una lista de las 5 personas más mencionadas en los reportajes"</em>. El chatbot entiende contexto completo y puede devolver listados o tablas ordenadas para tus propios informes.</p>
+                </section>
+
+                <hr class="border-surface-variant/40 my-xl" />
+
+                <section id="history" class="mb-xl scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec6Title">6. Historial y Monitoreo de Trabajos</h2>
+                    <p class="mb-md text-body-lg text-on-surface-variant leading-relaxed" data-i18n="userSec6Desc">La plataforma no olvida tus búsquedas previas.</p>
+                    <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual6_1.png" alt="Overview" class="w-full h-auto object-cover" />
+                    </div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userHistoryTabTitle">Pestaña de Historial:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userHistoryTabDesc">Actúa como un archivo. Si ejecutaste una búsqueda grande ayer, puedes venir a esta pestaña y darle clic para recargar instantáneamente todos los gráficos y el mapa sin tener que volver a esperar el proceso de extracción.</span>
+                        </div>
+                        <div class="my-lg rounded-2xl overflow-hidden custom-shadow border border-outline-variant/30">
+                        <img src="./static/img/usermanual6_2.png" alt="Overview" class="w-full h-auto object-cover" />
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userJobsTabTitle">Pestaña de Trabajos (Jobs):</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userJobsTabDesc">Muestra un registro en tiempo real de todo lo que el sistema está procesando por detrás. Verás cuando una tarea está "Ejecutando", y cuando ha sido "Exitosa".</span>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="border-surface-variant/40 my-xl" />
+
+                <section id="settings" class="scroll-mt-32">
+                    <h2 class="text-[24px] font-title-md text-on-background mb-md" data-i18n="userSec7Title">7. Opciones de Configuración y Exportación</h2>
+                    <div class="my-lg rounded-2xl custom-shadow border border-outline-variant/30 bg-surface-container-lowest flex items-center justify-center p-8 md:p-12">
+                        <img src="./static/img/usermanual7.png" alt="Settings View" class="w-52 md:w-65 h-auto object-contain rounded-xl custom-shadow" />
+                    </div>
+                    <div class="mt-lg flex flex-col gap-sm">
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userExportTitle">Exportar Datos:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userExportDesc">Arriba a la derecha de la plataforma encontrarás el botón de exportación. Este compilará todas las métricas, entidades detectadas y links a los artículos en un archivo de Excel para descarga, facilitando tu trabajo en herramientas como PowerBI.</span>
+                        </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="userLangTitle">Selector de Idioma:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userLangDesc">El ícono de engranaje (Settings) expone una palanca rápida para traducir absolutamente todos los menús, etiquetas y botones de la plataforma entre Español e Inglés al instante.</span>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="./static/js/map.js"></script>
+<script src="./static/js/analytics.js"></script>
+<script src="./static/js/i18n.js"></script>
+<script src="./static/js/ui.js"></script>
+<script src="./static/js/api.js"></script>
+<!-- Chatbot FAB -->
+<button id="chatbot-fab" class="fixed bottom-6 right-6 w-14 h-14 bg-primary-container text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all z-50 group hover:scale-105" onclick="toggleChatbot()">
+  <span class="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">robot_2</span>
+</button>
+
+<!-- Chatbot Drawer -->
+<div id="chatbot-drawer" class="fixed top-0 right-0 h-full w-[420px] sm:w-[460px] max-w-full bg-surface shadow-2xl transform translate-x-full transition-all duration-300 z-[60] flex flex-col border-l border-outline-variant">
+  <!-- Header -->
+  <div class="flex items-center justify-between p-4 border-b border-outline-variant bg-surface-container-low">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-primary-container/10 rounded-full flex items-center justify-center text-primary-container">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </div>
+      <div>
+        <h2 class="font-semibold text-on-surface" data-i18n="dataAnalystAi">Data Analyst AI</h2>
+        <p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> <span data-i18n="online">Online</span></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1">
+      <button id="chatbot-expand-btn" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-2 rounded-full transition-colors hidden sm:flex items-center justify-center" title="Expandir / Reducir panel" onclick="toggleChatbotExpand()">
+        <span class="material-symbols-outlined text-lg" id="chatbot-expand-icon">open_in_full</span>
+      </button>
+      <button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-2 rounded-full transition-colors" onclick="toggleChatbot()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Messages Area -->
+  <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f8fafd]">
+    <div class="flex items-start gap-2 max-w-[85%]">
+      <div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container flex-shrink-0 mt-1">
+        <span class="material-symbols-outlined text-sm">smart_toy</span>
+      </div>
+      <div class="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-on-surface shadow-sm" data-i18n="chatGreeting">
+        Hola, soy tu asistente analítico. ¿Qué te gustaría saber sobre los artículos en el dataset actual?
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="p-4 border-t border-outline-variant bg-surface">
+    <div class="relative flex items-end bg-white border border-outline-variant rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary-container/20 focus-within:border-primary-container transition-all">
+      <textarea id="chat-input" rows="1" class="w-full bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-sm text-on-surface placeholder:text-on-surface-variant/50 max-h-32" placeholder="Haz una pregunta sobre los datos..." data-i18n="chatPlaceholder"></textarea>
+      <button id="chat-send-btn" class="absolute right-2 bottom-2 p-1.5 text-primary-container hover:bg-primary-container/10 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-xl">send</span>
+      </button>
+    </div>
+    <div class="flex justify-between items-center mt-2 px-1">
+      <span class="text-[10px] text-on-surface-variant flex items-center gap-1">
+        <span class="material-symbols-outlined text-[12px]">security</span>
+        <span id="chatbot-model-badge">gpt-oss-120b</span> - Dataset Context Only
+      </span>
+      <button id="chat-clear-btn" class="text-[10px] text-on-surface-variant hover:text-red-500 transition-colors" data-i18n="clearChat">Limpiar Chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer Overlay -->
+<div id="chatbot-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden transition-opacity opacity-0" onclick="toggleChatbot()"></div>
+
+
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.querySelectorAll('[data-tab]').forEach(btn => {
+                    btn.classList.remove('bg-primary-container', 'text-on-primary', 'font-bold');
+                    btn.classList.add('text-on-surface-variant', 'hover:bg-surface-container-high');
+                });
+                const manualTabBtn = document.querySelector('[data-tab="manual"]');
+                if (manualTabBtn) {
+                    manualTabBtn.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high');
+                    manualTabBtn.classList.add('bg-primary-container', 'text-on-primary', 'font-bold');
+                }
+
+                const views = ['feed', 'analytics', 'history', 'jobs', 'docs', 'manual'];
+                views.forEach(t => {
+                    const el = document.getElementById('view-' + t);
+                    if(el) {
+                        el.classList.add('hidden');
+                        el.classList.remove('flex');
+                    }
+                });
+                const manualView = document.getElementById('view-manual');
+                if(manualView) {
+                    manualView.classList.remove('hidden');
+                    manualView.style.display = 'flex';
+                }
+                
+                const searchContainer = document.getElementById('searchBarContainer');
+                if(searchContainer) {
+                    const warning = document.createElement('div');
+                    warning.className = 'absolute top-full mt-2 w-full bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded shadow-md z-50 text-sm font-medium';
+                    warning.innerHTML = '⚠️ <strong>DEMO MODE:</strong> You are viewing the static GitHub Pages documentation. The backend (Scraping, DB, LLMs) is disconnected. Feel free to explore the User Manual and Technical Documentation tabs.';
+                    searchContainer.appendChild(warning);
+                }
+            }, 100);
+        });
+        </script>
+        \n</body>
+</html>
