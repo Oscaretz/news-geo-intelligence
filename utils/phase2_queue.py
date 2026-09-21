@@ -33,7 +33,7 @@ class QueueManager:
                 if execution_id:
                     # Execute phase 2!
                     try:
-                        update_progress(execution_id, 0, "Iniciando análisis LLM...")
+                        update_progress(execution_id, 0, "Starting LLM analysis...")
                         
                         # We use country from a fallback or fetch it, default 'mx'
                         country = "mx"
@@ -51,9 +51,9 @@ class QueueManager:
                             current = event.get("current", 0)
                             target = max(event.get("target", 1), 1)
                             progress = min((current / target) * 100, 100)
-                            update_progress(execution_id, progress, f"Analizando artículos ({current}/{target})...")
+                            update_progress(execution_id, progress, f"Analyzing articles ({current}/{target})...")
                             
-                        update_progress(execution_id, 100, "Análisis completo.")
+                        update_progress(execution_id, 100, "Analysis complete.")
                     except Exception as e:
                         logger.error(f"Error in LLM queue process for {execution_id}: {e}")
                     finally:

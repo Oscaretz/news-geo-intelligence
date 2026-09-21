@@ -111,7 +111,8 @@ async function fetchDiscovery() {
             await loadMapForCountry(selectedCountry);
         }
 
-        updateStatus(`Artículos recolectados con éxito.`);
+        const successMsg = typeof i18n !== 'undefined' ? i18n.t('articlesCollectedSuccess', 'Articles successfully collected.') : 'Articles successfully collected.';
+        updateStatus(successMsg);
 
         if (articles.length === 0) {
             renderTopStories([], "No articles found matching your criteria.");
@@ -139,7 +140,8 @@ async function fetchDiscovery() {
         if (mapearBtn) mapearBtn.classList.remove('hidden');
     } catch (error) {
         console.error("Detalle del error:", error);
-        updateStatus(`❌ Error de conexión.`);
+        const connErr = typeof i18n !== 'undefined' ? i18n.t('connectionError', 'Connection error') : 'Connection error';
+        updateStatus(`❌ ${connErr}`);
     } finally {
         window._isFetching = false;
     }
@@ -160,36 +162,41 @@ async function startStreamMapping() {
     
     // Si estamos en modo multi-run (historial múltiple)
     if (typeof multiRunMode !== 'undefined' && multiRunMode && typeof selectedHistoryRuns !== 'undefined' && selectedHistoryRuns.size > 0) {
-        updateStatus(`Enviando ${selectedHistoryRuns.size} jobs a análisis...`);
+        const sendMsg = typeof i18n !== 'undefined' ? i18n.t('sendingJobsToAnalysis', 'Sending {count} jobs to analysis...').replace('{count}', selectedHistoryRuns.size) : `Sending ${selectedHistoryRuns.size} jobs to analysis...`;
+        updateStatus(sendMsg);
         try {
             for (let id of selectedHistoryRuns) {
                 await fetch(`/api/jobs/${id}/analyze`, { method: 'POST' });
             }
-            updateStatus(`Jobs enviados a análisis con éxito.`);
+            const sentSuccessMsg = typeof i18n !== 'undefined' ? i18n.t('jobsSentSuccess', 'Jobs successfully sent to analysis.') : 'Jobs successfully sent to analysis.';
+            updateStatus(sentSuccessMsg);
             if(typeof switchTab === 'function') switchTab('jobs');
             fetchJobs();
             return;
         } catch (e) {
-            updateStatus(`❌ Error enviando a análisis: ${e}`);
+            updateStatus(`❌ Error: ${e}`);
             return;
         }
     }
 
     // Si tenemos un job de discovery o historial cargado en pantalla
     if (window.currentDiscoveryExecutionId) {
-        updateStatus(`Enviando a análisis...`);
+        const sendingMsg = typeof i18n !== 'undefined' ? i18n.t('sendingJobsToAnalysis', 'Sending to analysis...').replace('{count}', '1') : 'Sending to analysis...';
+        updateStatus(sendingMsg);
         try {
             const response = await fetch(`/api/jobs/${window.currentDiscoveryExecutionId}/analyze`, { method: 'POST' });
             const data = await response.json();
             if (data.success) {
-                updateStatus(`✅ Job de análisis iniciado (ID: ${window.currentDiscoveryExecutionId.substring(0,8)}...)`);
+                const jobStartedMsg = typeof i18n !== 'undefined' ? i18n.t('analysisJobStarted', 'Analysis job started') : 'Analysis job started';
+                updateStatus(`✅ ${jobStartedMsg} (ID: ${window.currentDiscoveryExecutionId.substring(0,8)}...)`);
                 if(typeof switchTab === 'function') switchTab('jobs');
                 fetchJobs();
             } else {
                 updateStatus(`❌ Error: ${data.error}`);
             }
         } catch(e) {
-            updateStatus(`❌ Error de conexión: ${e}`);
+            const connErr = typeof i18n !== 'undefined' ? i18n.t('connectionError', 'Connection error') : 'Connection error';
+            updateStatus(`❌ ${connErr}: ${e}`);
         }
         return;
     }
@@ -200,7 +207,8 @@ async function startStreamMapping() {
         const response = await fetch(`/api/jobs/start${qs}`, { method: 'POST' });
         const data = await response.json();
         if (data.run_id) {
-            updateStatus(`✅ Job iniciado con éxito (ID: ${data.run_id.substring(0,8)}...)`);
+            const jobStartedMsg = typeof i18n !== 'undefined' ? i18n.t('jobStartedSuccess', 'Job successfully started') : 'Job successfully started';
+            updateStatus(`✅ ${jobStartedMsg} (ID: ${data.run_id.substring(0,8)}...)`);
             if(typeof switchTab === 'function') switchTab('jobs');
             fetchJobs();
         } else {

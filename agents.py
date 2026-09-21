@@ -548,7 +548,7 @@ class OrchestratorAgent:
             
         existing_titles = set()
         if execution_id:
-            update_progress(execution_id, 10, "Buscando artículos...")
+            update_progress(execution_id, 10, "Fetching discovery (10%)...")
             if not self.history_db: await self.init_history_db()
             async with self.history_db.acquire() as conn:
                 rows = await conn.fetch("SELECT title FROM articles WHERE execution_id = $1", execution_id)
@@ -572,7 +572,7 @@ class OrchestratorAgent:
             articles = [a for a in articles if a['title'] not in existing_titles]
             
             if execution_id:
-                update_progress(execution_id, 40, f"Extrayendo texto de {len(articles)} artículos...")
+                update_progress(execution_id, 40, f"Extracting text from {len(articles)} articles...")
             
             # Concurrently resolve target HTML, download/optimize images, extract text and cache
             async def process_article(a):
@@ -687,7 +687,7 @@ class OrchestratorAgent:
                 await self.db.commit()
             
             if execution_id:
-                update_progress(execution_id, 100, "Extracción finalizada.")
+                update_progress(execution_id, 100, "Extraction complete.")
                 
             # History Persistence (Phase 1)
             if not execution_id:

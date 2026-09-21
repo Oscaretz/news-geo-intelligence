@@ -40,6 +40,12 @@ const i18n = {
       console.error("Error loading dictionary:", e);
     }
   },
+  t(key, defaultVal) {
+    if (this.dictionary && this.dictionary[key]) {
+      return this.dictionary[key];
+    }
+    return defaultVal !== undefined ? defaultVal : key;
+  },
   translateDOM() {
     if (this.observer) this.observer.disconnect();
     

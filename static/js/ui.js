@@ -299,7 +299,7 @@ function resetUI(mode) {
         if (mapWrapper) mapWrapper.style.display = 'none';
         if (feed) feed.classList.add('grid-mode');
         if (btnDlMap) btnDlMap.style.display = 'none';
-        updateStatus('Obteniendo noticias y metadata de Google...');
+        updateStatus(typeof i18n !== 'undefined' ? i18n.t('fetchingNews', 'Fetching news and metadata from Google...') : 'Fetching news and metadata from Google...');
     } else {
         if (mapWrapper) mapWrapper.style.display = 'block';
         if (feed) feed.classList.remove('grid-mode');
@@ -308,7 +308,7 @@ function resetUI(mode) {
         if (typeof initMap === 'function') initMap(true);
         if (typeof resetMapState === 'function') resetMapState();
         
-        updateStatus('Buscando el buffer de noticias...');
+        updateStatus(typeof i18n !== 'undefined' ? i18n.t('searchingNewsBuffer', 'Searching news buffer...') : 'Searching news buffer...');
     }
 }
 
@@ -2151,6 +2151,40 @@ function stopLiveJobsTimer() {
     }
 }
 
+function translateStep(step) {
+    if (!step) return typeof i18n !== 'undefined' ? i18n.t('starting', 'Starting...') : 'Starting...';
+    if (typeof i18n === 'undefined') return step;
+
+    // Pattern matching for dynamic steps
+    // "Analizando artículos (5/11)..." or "Analyzing articles (5/11)..."
+    const analyzeMatch = step.match(/(?:Analizando artículos|Analyzing articles)\s*(\(\d+\/\d+\)\.\.\.)/i);
+    if (analyzeMatch) {
+        return `${i18n.t('analyzingArticles', 'Analyzing articles')} ${analyzeMatch[1]}`;
+    }
+
+    // "Extrayendo texto de 10 artículos..."
+    const extractMatch = step.match(/(?:Extrayendo texto de|Extracting text from)\s*(\d+)\s*(?:artículos|articles)\.\.\./i);
+    if (extractMatch) {
+        return `${i18n.t('extractingTextFrom', 'Extracting text from')} ${extractMatch[1]} ${i18n.t('articles', 'Articles').toLowerCase()}...`;
+    }
+
+    // Static messages mapping
+    if (step.includes('Iniciando análisis') || step.includes('Starting LLM')) {
+        return i18n.t('startingLLMAnalysis', 'Starting LLM analysis...');
+    }
+    if (step.includes('Análisis completo') || step.includes('Analysis complete')) {
+        return i18n.t('analysisComplete', 'Analysis complete.');
+    }
+    if (step.includes('Buscando artículos') || step.includes('Fetching discovery')) {
+        return i18n.t('fetchingNews', 'Fetching news and metadata from Google...');
+    }
+    if (step.includes('Extracción finalizada') || step.includes('Extraction complete')) {
+        return i18n.t('articlesCollectedSuccess', 'Articles successfully collected.');
+    }
+
+    return step;
+}
+
 function renderJobsQueue(jobs) {
     const tbody = document.getElementById('jobsTableBody');
     if (!tbody) return;
@@ -2267,7 +2301,7 @@ function renderJobsQueue(jobs) {
                 <div class="flex flex-col gap-1 w-[200px]">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined animate-spin text-primary text-[16px]">sync</span>
-                        <span class="text-label-sm font-medium text-on-surface">${job.current_step || 'Starting...'}</span>
+                        <span class="text-label-sm font-medium text-on-surface">${translateStep(job.current_step)}</span>
                     </div>
                     <div class="w-full bg-surface-variant rounded-full h-1.5 overflow-hidden">
                         <div class="bg-primary h-1.5 rounded-full transition-all duration-300" style="width: ${job.progress_pct || 0}%"></div>
@@ -2292,12 +2326,16 @@ function renderJobsQueue(jobs) {
 
         let actionsHtml = `<span class="text-on-surface-variant text-sm">None</span>`;
         if (job.status === 'SCRAPED' || job.status === 'PARTIALLY_ANALYZED') {
-            const btnText = job.status === 'PARTIALLY_ANALYZED' ? 'Retry LLM Analysis' : 'Analyze with LLM';
+            const btnText = job.status === 'PARTIALLY_ANALYZED' ? 
+                (typeof i18n !== 'undefined' ? i18n.t('retryLlmAnalysis', 'Retry LLM Analysis') : 'Retry LLM Analysis') : 
+                (typeof i18n !== 'undefined' ? i18n.t('analyzeWithLlm', 'Analyze with LLM') : 'Analyze with LLM');
             actionsHtml = `<button onclick="analyzeJob('${job.run_id}')" class="px-3 py-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
         } else if (job.status === 'PAUSED_BLOCKED') {
-            actionsHtml = `<button onclick="resumeScrapingJob('${job.run_id}')" class="px-3 py-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-md text-label-sm font-medium transition-colors">Resume Scraping</button>`;
+            const btnText = typeof i18n !== 'undefined' ? i18n.t('resumeScraping', 'Resume Scraping') : 'Resume Scraping';
+            actionsHtml = `<button onclick="resumeScrapingJob('${job.run_id}')" class="px-3 py-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
         } else if (isQueued || isRunning || job.status === 'STARTING') {
-            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md text-label-sm font-medium transition-colors">Stop Job</button>`;
+            const btnText = typeof i18n !== 'undefined' ? i18n.t('stopJob', 'Stop Job') : 'Stop Job';
+            actionsHtml = `<button onclick="cancelJob('${job.run_id}')" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md text-label-sm font-medium transition-colors">${btnText}</button>`;
         }
 
         let tr = document.getElementById(`job-row-${job.run_id}`);
@@ -2589,7 +2627,8 @@ async function sendChatMessage() {
     appendChatMessage('user', text);
     const botMsgDiv = appendChatMessage('bot', '');
     const botContentDiv = botMsgDiv.querySelector('.chat-markdown');
-    botContentDiv.innerHTML = '<span class="animate-pulse text-on-surface-variant">Analizando consulta...</span>';
+    const analyzingText = typeof i18n !== 'undefined' ? i18n.t('analyzingQuery', 'Analyzing query...') : 'Analyzing query...';
+    botContentDiv.innerHTML = `<span class="animate-pulse text-on-surface-variant">${analyzingText}</span>`;
     
     isChatStreaming = true;
     document.getElementById('chat-send-btn').disabled = true;
@@ -2640,7 +2679,7 @@ async function sendChatMessage() {
                         fullResponse += `\n\n❌ **Error:** ${msg}`;
                     } else if (data.trim().startsWith('[QUOTA]') || data.trim().startsWith('[RATE_LIMITED]')) {
                         const msg = data.replace(/\[(?:QUOTA|RATE_LIMITED)\]/, '').replace(/\\n/g, '').trim();
-                        fullResponse += `\n\n⚠️ **Aviso:** ${msg}`;
+                        fullResponse += `\n\n⚠️ **Notice:** ${msg}`;
                     } else {
                         fullResponse += data;
                     }
@@ -2663,7 +2702,8 @@ async function sendChatMessage() {
         }
         
     } catch (err) {
-        botContentDiv.innerHTML = `<span class="text-red-500">Error de red: ${err}</span>`;
+        const netErr = typeof i18n !== 'undefined' ? i18n.t('networkError', 'Network error') : 'Network error';
+        botContentDiv.innerHTML = `<span class="text-red-500">${netErr}: ${err}</span>`;
     } finally {
         isChatStreaming = false;
         document.getElementById('chat-send-btn').disabled = false;
