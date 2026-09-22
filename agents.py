@@ -658,7 +658,7 @@ class OrchestratorAgent:
             articles = [a for a in articles if a['title'] not in existing_titles]
             
             if execution_id:
-                update_progress(execution_id, 40, f"Extracting text from {len(articles)} articles...")
+                update_progress(execution_id, 40, "Extracting text from articles...")
             
             # Concurrently resolve target HTML, download/optimize images, extract text and cache
             async def process_article(a):

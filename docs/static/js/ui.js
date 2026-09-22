@@ -2185,10 +2185,9 @@ function translateStep(step) {
         return `${i18n.t('analyzingArticles', 'Analyzing articles')} ${analyzeMatch[1]}`;
     }
 
-    // "Extrayendo texto de 10 artículos..."
-    const extractMatch = step.match(/(?:Extrayendo texto de|Extracting text from)\s*(\d+)\s*(?:artículos|articles)\.\.\./i);
-    if (extractMatch) {
-        return `${i18n.t('extractingTextFrom', 'Extracting text from')} ${extractMatch[1]} ${i18n.t('articles', 'Articles').toLowerCase()}...`;
+    // "Extracting text from articles..."
+    if (step.includes('Extrayendo texto') || step.includes('Extracting text')) {
+        return `${i18n.t('extractingTextFrom', 'Extracting text from')} ${i18n.t('articles', 'articles').toLowerCase()}...`;
     }
 
     // Static messages mapping
