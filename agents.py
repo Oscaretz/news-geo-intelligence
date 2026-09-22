@@ -376,10 +376,11 @@ class NLPAgent:
             f"You are a strict geographic entity extractor. Analyze the text and extract ONLY the {country_name} regions that are the MAIN FOCUS of the story.\n\n"
             "CRITICAL RULES:\n"
             f"1. EXACT VOCABULARY: Output MUST perfectly match items from this exact list: [{valid_regions_str}].\n"
-            f"2. ALIASES & RULES: {llm_hints}\n"
-            "3. CITY INFERENCE: If a known city is the focus, output its parent region from the list.\n"
-            "4. NO HALLUCINATIONS: If no region is the primary focus, return an empty array.\n"
-            "5. FORMAT: Return ONLY valid JSON: {\"locations\": [\"Region1\"]}.\n\n"
+            "2. TITLE PRIORITY: The headline/title is the PRIMARY focus of the news. If regions or cities are mentioned in the Title, they take precedence over incidental places mentioned in the body.\n"
+            f"3. ALIASES & RULES: {llm_hints}\n"
+            "4. CITY INFERENCE: If a known city is the focus, output its parent region from the list.\n"
+            "5. NO HALLUCINATIONS: If no region is the primary focus, return an empty array.\n"
+            "6. FORMAT: Return ONLY valid JSON: {\"locations\": [\"Region1\"]}.\n\n"
             f"Title: {title}\nText: {compressed_text}"
         )
 

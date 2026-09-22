@@ -34,10 +34,20 @@ def get_gemini():
 class LLMExtractionError(Exception):
     def __init__(self, message, raw_response): super().__init__(message); self.raw_response = raw_response
 
-async def extract_metrics_batch(articles_text_map: dict, country: str = "mx") -> str:
+async def extract_metrics_batch(articles_data_map: dict, country: str = "mx") -> str:
     batch_prompt = 'Analyze the following batch of articles and extract the required metrics for EACH. Return ONLY valid JSON matching the schema.\n'
-    for art_id, text in articles_text_map.items():
-        batch_prompt += f'\n----\nARTICLE ID: {art_id}\nTEXT: {text[:3000]}\n'
+    for art_id, item in articles_data_map.items():
+        if isinstance(item, dict):
+            title = item.get('title', '')
+            text = (item.get('text') or '')[:3000]
+        else:
+            title = ''
+            text = (item or '')[:3000]
+
+        batch_prompt += f'\n----\nARTICLE ID: {art_id}\n'
+        if title:
+            batch_prompt += f'TITLE: {title}\n'
+        batch_prompt += f'TEXT: {text}\n'
     
     schema_json = json.dumps(BatchNewsMetrics.model_json_schema())
     
@@ -58,7 +68,8 @@ async def extract_metrics_batch(articles_text_map: dict, country: str = "mx") ->
     sys_prompt = f"""You are a strict data extraction system. You must output JSON that perfectly matches this JSON Schema.
 
 CRITICAL LOCATION MAPPING RULES:
-For the 'locations_list' field, you must extract mentioned geographic locations and resolve abbreviations to their FULL formal state names.{states_hint}
+1. TITLE PRIORITY: The headline/title is the PRIMARY focus of the news. If states or cities are explicitly mentioned in the TITLE (e.g. "Puebla y Jalisco"), they MUST be extracted into 'locations_list'. Do not let secondary sidebars, related links, or mentions of other states in the body override the locations specified in the TITLE.
+2. For the 'locations_list' field, you must extract mentioned geographic locations and resolve abbreviations to their FULL formal state names.{states_hint}
 Specifically for Mexico (mx):
 - If you see "CDMX", "Ciudad de Mexico", or "DF", output exactly "Ciudad de México".
 - If you see "Edomex" or "Estado de Mexico", output exactly "Estado de México".
@@ -112,22 +123,25 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
     if not articles_batch:
         return
 
-    text_map = {}
+    articles_data_map = {}
     execution_id_map = {}
     for a in articles_batch:
-        text_map[a['article_id']] = (a.get('content_snippet') or '')
+        articles_data_map[a['article_id']] = {
+            'title': a.get('title') or '',
+            'text': a.get('content_snippet') or ''
+        }
         execution_id_map[a['article_id']] = a.get('execution_id')
 
     try:
-        raw_json_str = await extract_metrics_batch(text_map, country)
+        raw_json_str = await extract_metrics_batch(articles_data_map, country)
     except LLMExtractionError as e:
         logger.error(f'Extraction error for batch: {e}')
-        for art_id in text_map.keys():
+        for art_id in articles_data_map.keys():
             await _send_to_dlq(pool, art_id, execution_id_map[art_id], e.raw_response, str(e))
         return
     except Exception as e:
         logger.error(f'Extraction error for batch: {e}')
-        for art_id in text_map.keys():
+        for art_id in articles_data_map.keys():
             await _send_to_dlq(pool, art_id, execution_id_map[art_id], 'None', str(e))
         return
 
@@ -136,7 +150,7 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
         results = parsed_data.get('results', [])
     except json.JSONDecodeError as e:
         logger.error(f'Failed to parse LLM JSON response: {e}')
-        for art_id in text_map.keys():
+        for art_id in articles_data_map.keys():
             await _send_to_dlq(pool, art_id, execution_id_map[art_id], raw_json_str, f'JSONDecodeError: {e}')
         return
 
@@ -155,7 +169,7 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
                     SET sentiment_score = $3, word_count = $4, entity_count = $5
                     WHERE article_id = $1 AND execution_id = $2
                 ''', article_id, execution_id, validated_metrics.sentiment_score, 
-                    len(text_map.get(article_id, '').split()), 
+                    len((articles_data_map.get(article_id, {}).get('text') or '').split()), 
                     len(validated_metrics.entities_list))
                 
                 await conn.execute('''

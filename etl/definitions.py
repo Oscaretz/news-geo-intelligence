@@ -76,10 +76,16 @@ def transform_metrics(extract_daily_news: list) -> list:
         all_results = []
         for i in range(0, len(extract_daily_news), batch_size):
             batch = extract_daily_news[i:i+batch_size]
-            text_map = {a['article_id']: (a.get('content_snippet') or '') for a in batch}
+            data_map = {
+                a['article_id']: {
+                    'title': a.get('title') or '',
+                    'text': a.get('content_snippet') or ''
+                }
+                for a in batch
+            }
             
             try:
-                raw_json_str = await extract_metrics_batch(text_map)
+                raw_json_str = await extract_metrics_batch(data_map)
                 parsed_data = json.loads(raw_json_str)
                 results = parsed_data.get('results', [])
                 
