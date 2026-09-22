@@ -256,7 +256,6 @@ async function cancelJob(runId) {
 
 async function exportAll() {
     await downloadExcel();
-    await downloadMap();
 }
 
 async function downloadExcel() {
@@ -265,23 +264,38 @@ async function downloadExcel() {
     // Formatear la data (Headers en Español) justo en el momento de la descarga
     const excelData = collectedArticles.map(article => {
         const obj = {
-            "Identificador Único": article.guid || '',
             "Título": article.title || '',
             "Fuente": article.source || '',
-            "URL de Google": article.url || '',
-            "URL Real": article.real_url || '',
+            "URL": article.real_url || article.url || '',
             "Fecha de Publicación": article.date || '',
             "Estados Extraídos": article.states && article.states.length > 0 ? article.states.join(', ') : 'Sin localidad',
-            "URL de Imagen": article.image_url || article.image || ''
+            "Total de Estados": article.states ? article.states.length : 0
         };
+        
+        // Incluir campos de enriquecimiento si existen
+        if (article.entities_list || article.entities) {
+            const entities = article.entities_list || article.entities;
+            obj["Entidades Claves"] = Array.isArray(entities) ? entities.map(e => e.entity_text || e).join(', ') : entities;
+        }
+        if (article.sentiment_score !== undefined) {
+            obj["Sentimiento"] = article.sentiment_score;
+        }
+        
+        obj["URL de Imagen"] = article.image_url || article.image || '';
+
         if (article.origin_search_term) {
             obj["Término de Búsqueda Origen"] = article.origin_search_term;
         }
         return obj;
     });
 
+    const epicenter = document.getElementById('kpiEpicenter') ? document.getElementById('kpiEpicenter').textContent : '';
+    const topSource = document.getElementById('kpiTopSource') ? document.getElementById('kpiTopSource').textContent : '';
+    const totalLoc = document.getElementById('kpiCoverage') ? document.getElementById('kpiCoverage').textContent : '';
+
     const payload = {
         articles: excelData,
+        images: {},
         params: {
             "Término de Búsqueda": document.getElementById('mainSearchInput')?.value || '',
             "Palabras Secundarias": document.getElementById('secondaryInput')?.value || '',
@@ -289,11 +303,34 @@ async function downloadExcel() {
             "Dominio / Sitio": document.getElementById('domainInput')?.value || '',
             "Rango de Fechas": document.getElementById('dateRange')?.value || '',
             "Cantidad Solicitada": document.getElementById('nqueriesInput')?.value || '15',
-            "Modo de Extracción": currentMode === 'discovery' ? 'Descubrimiento (Rápido)' : 'Mapeo de Tendencias (NLP)',
+            "Modo de Extracción": typeof currentMode !== 'undefined' && currentMode === 'discovery' ? 'Descubrimiento (Rápido)' : 'Mapeo de Tendencias (NLP)',
             "Total Artículos": collectedArticles.length,
+            "Total Locaciones": totalLoc,
+            "Epicentro": epicenter,
+            "Top Fuente": topSource,
             "Fecha y Hora de Exportación": new Date().toLocaleString()
         }
     };
+
+    // Capture chart images (Maps and Charts)
+    try {
+        const idsToCapture = [
+            { id: 'mapWrapper', filename: 'mapa.png' },
+            { id: 'sourceCard', filename: 'chart_sources.png' },
+            { id: 'statesCard', filename: 'chart_states.png' },
+            { id: 'timelineCard', filename: 'chart_timeline.png' }
+        ];
+
+        for (const item of idsToCapture) {
+            const el = document.getElementById(item.id);
+            if (el) {
+                const canvas = await html2canvas(el, { useCORS: true, backgroundColor: '#ffffff' });
+                payload.images[item.filename] = canvas.toDataURL("image/png");
+            }
+        }
+    } catch (e) {
+        console.warn("Could not capture all chart images for export.", e);
+    }
 
     const response = await fetch('/download/excel', {
         method: 'POST',

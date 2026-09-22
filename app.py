@@ -480,6 +480,32 @@ def download_excel():
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
         df_data.to_excel(writer, index=False, sheet_name='Data')
         df_meta.to_excel(writer, index=False, sheet_name='Metadata')
+        
+        # Format sheets
+        for sheet_name in writer.sheets:
+            worksheet = writer.sheets[sheet_name]
+            # Style headers
+            from openpyxl.styles import PatternFill, Font
+            header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True)
+            for cell in worksheet[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+            worksheet.freeze_panes = "A2"
+            
+            # Auto-fit columns
+            for col in worksheet.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 70)  # Max width 70 to prevent extreme sizes
+                worksheet.column_dimensions[column].width = adjusted_width
+
     excel_buffer.seek(0)
 
     # 4. In-memory ZIP archive packaging Excel and images/ folder
@@ -487,6 +513,19 @@ def download_excel():
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.writestr(excel_filename, excel_buffer.getvalue())
 
+        # Save base64 images passed from frontend (maps, charts)
+        if isinstance(data, dict) and 'images' in data:
+            import base64
+            for img_name, b64_data in data['images'].items():
+                if b64_data and b64_data.startswith('data:image'):
+                    try:
+                        header, encoded = b64_data.split(",", 1)
+                        img_bytes = base64.b64decode(encoded)
+                        zip_file.writestr(f"charts/{img_name}", img_bytes)
+                    except Exception as e:
+                        print(f"Error decoding image {img_name}: {e}")
+
+        # Save downloaded article images
         added_images = set()
         for row in articles:
             img_val = row.get("Ruta de Imagen") or row.get("image") or ""
