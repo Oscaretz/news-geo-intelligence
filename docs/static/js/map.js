@@ -33,7 +33,7 @@ function initMap(force = false) {
             center = currentCountryConfig.center;
             zoom = currentCountryConfig.zoom || 5;
         }
-        map = L.map('map', { zoomControl: false }).setView(center, zoom);
+        map = L.map('map', { zoomControl: false, preferCanvas: true }).setView(center, zoom);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',

@@ -307,7 +307,7 @@ async function downloadExcel() {
             "Palabras Excluidas": document.getElementById('excludeInput')?.value || '',
             "Dominio / Sitio": document.getElementById('domainInput')?.value || '',
             "Rango de Fechas": document.getElementById('dateRange')?.value || '',
-            "Cantidad Solicitada": document.getElementById('nqueriesInput')?.value || '15',
+            "Cantidad Solicitada": document.getElementById('nqueriesInput')?.value || String(collectedArticles.length),
             "Modo de Extracción": typeof currentMode !== 'undefined' && currentMode === 'discovery' ? 'Descubrimiento (Rápido)' : 'Mapeo de Tendencias (NLP)',
             "Total Artículos": collectedArticles.length,
             "Total Locaciones": totalLoc,
