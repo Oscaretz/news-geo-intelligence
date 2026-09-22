@@ -329,8 +329,23 @@ async function downloadExcel() {
         for (const item of idsToCapture) {
             const el = document.getElementById(item.id);
             if (el) {
+                // If it's the map, hide the controls before capture
+                let centerBtn, leafletControls;
+                if (item.id === 'mapWrapper') {
+                    centerBtn = el.querySelector('button[onclick="centerMap()"]');
+                    leafletControls = el.querySelector('.leaflet-control-container');
+                    if (centerBtn) centerBtn.style.display = 'none';
+                    if (leafletControls) leafletControls.style.display = 'none';
+                }
+
                 const canvas = await html2canvas(el, { useCORS: true, backgroundColor: '#ffffff' });
                 payload.images[item.filename] = canvas.toDataURL("image/png");
+
+                // Restore map controls
+                if (item.id === 'mapWrapper') {
+                    if (centerBtn) centerBtn.style.display = '';
+                    if (leafletControls) leafletControls.style.display = '';
+                }
             }
         }
     } catch (e) {
