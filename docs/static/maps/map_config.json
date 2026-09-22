@@ -6,7 +6,7 @@
     "hl": "es",
     "gl": "MX",
     "ceid": "MX:es",
-    "llm_hints": "Map 'CDMX' to 'Ciudad de MÃ©xico'. Map 'Edomex' to 'Estado de MÃ©xico'. Do not include other Country names in the response."
+    "llm_hints": "Map 'CDMX' or 'DF' to 'Ciudad de México'. Map 'Edomex' to 'Estado de México'. If you see 'México', use context to infer whether it means the country, 'Estado de México', or 'Ciudad de México' (never just output 'México'). Do not include other Country names in the response."
   },
   "usa": {
     "country_name": "United States",

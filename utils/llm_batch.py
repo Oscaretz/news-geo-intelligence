@@ -63,19 +63,25 @@ async def extract_metrics_batch(articles_data_map: dict, country: str = "mx") ->
     states_hint = ""
     if valid_states:
         states_hint = f"\nALLOWED STATES FOR '{country}': " + ", ".join(valid_states) + "\n"
-        states_hint += f"CRITICAL: DO NOT extract any locations from other countries (e.g. España, Colombia). YOU MUST ONLY extract locations that EXACTLY match one of the ALLOWED STATES listed above.\n"
+        states_hint += f"CRITICAL: DO NOT extract any locations from other countries. YOU MUST ONLY extract locations that EXACTLY match one of the ALLOWED STATES listed above.\n"
+
+    dynamic_hints = ""
+    try:
+        with open("static/maps/map_config.json", "r", encoding="utf-8") as cf:
+            import json as json_cfg
+            config_data = json_cfg.load(cf)
+            country_conf = config_data.get(country, {})
+            hints = country_conf.get("llm_hints", "")
+            if hints:
+                dynamic_hints = f"\nCOUNTRY SPECIFIC HINTS:\n- {hints}\n"
+    except Exception as e:
+        logger.warning(f"Could not load map_config.json for {country}: {e}")
 
     sys_prompt = f"""You are a strict data extraction system. You must output JSON that perfectly matches this JSON Schema.
 
 CRITICAL LOCATION MAPPING RULES:
-1. TITLE PRIORITY: The headline/title is the PRIMARY focus of the news. If states or cities are explicitly mentioned in the TITLE (e.g. "Puebla y Jalisco"), they MUST be extracted into 'locations_list'. Do not let secondary sidebars, related links, or mentions of other states in the body override the locations specified in the TITLE.
-2. For the 'locations_list' field, you must extract mentioned geographic locations and resolve abbreviations to their FULL formal state names.{states_hint}
-Specifically for Mexico (mx):
-- If you see "CDMX", "Ciudad de Mexico", or "DF", output exactly "Ciudad de México".
-- If you see "Edomex" or "Estado de Mexico", output exactly "Estado de México".
-- If you see "México", use context to infer whether it means the country or "Estado de México" or "Ciudad de México". NEVER just output "México".
-- Ensure case sensitivity and accents are correct.
-
+1. TITLE PRIORITY: The headline/title is the PRIMARY focus of the news. If states or cities are explicitly mentioned in the TITLE, they MUST be extracted into 'locations_list'. If the title mentions a specific geographic feature or local area that is NOT an allowed state (e.g. a dam, river, region, or municipality), you SHOULD extract the ALLOWED STATES mentioned in the body ONLY IF they are directly related to the main topic of the title. Do not let secondary sidebars, related links, or unrelated mentions of other states in the body override the main topic.
+2. For the 'locations_list' field, you must extract mentioned geographic locations and resolve abbreviations to their FULL formal state names.{states_hint}{dynamic_hints}
 JSON Schema:
 {schema_json}"""
     
