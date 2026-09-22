@@ -161,6 +161,7 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
         return
 
     async with pool.acquire() as conn:
+        validation_failed_ids = set()
         for res_dict in results:
             article_id = res_dict.get('article_id')
             execution_id = execution_id_map.get(article_id)
@@ -191,18 +192,21 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
                     ''', article_id, execution_id, ent.entity_text, ent.entity_type)
                     
             except ValidationError as e:
-                logger.warning(f'Invalid article metrics for {article_id}: {e}')
-                await _send_to_dlq(conn, article_id, execution_id, json.dumps(res_dict), str(e))
+                logger.warning(f'Invalid article metrics in batch for {article_id}: {e}. Queuing for individual retry.')
+                validation_failed_ids.add(article_id)
             except Exception as e:
                 logger.error(f'DB error for article {article_id}: {e}')
                 await _send_to_dlq(conn, article_id, execution_id, json.dumps(res_dict), str(e))
 
-        # Retry individually any article the LLM silently skipped in the batch
+        # Retry individually any article the LLM silently skipped OR failed schema validation in the batch
         responded_ids = {r.get('article_id') for r in results}
         missed_ids = [art_id for art_id in execution_id_map if art_id not in responded_ids]
-        if missed_ids:
-            logger.warning(f"[process_articles_batch] LLM missed {len(missed_ids)} articles — retrying individually.")
-        for art_id in missed_ids:
+        retry_queue_ids = list(dict.fromkeys(missed_ids + list(validation_failed_ids)))
+
+        if retry_queue_ids:
+            logger.warning(f"[process_articles_batch] Retrying {len(retry_queue_ids)} articles individually (missed={len(missed_ids)}, invalid={len(validation_failed_ids)}).")
+
+        for art_id in retry_queue_ids:
             exec_id = execution_id_map[art_id]
             single_map = {art_id: articles_data_map[art_id]}
             try:
@@ -211,25 +215,29 @@ async def process_articles_batch(pool, articles_batch: list, country: str = "mx"
                 retry_results = retry_parsed.get('results', [])
                 found = next((r for r in retry_results if r.get('article_id') == art_id), None)
                 if found:
-                    validated_metrics = NewsMetrics(**found)
-                    await conn.execute('''
-                        UPDATE fact_news_metrics
-                        SET sentiment_score = $3, word_count = $4, entity_count = $5
-                        WHERE article_id = $1 AND execution_id = $2
-                    ''', art_id, exec_id, validated_metrics.sentiment_score,
-                        len((single_map.get(art_id, {}).get('text') or '').split()),
-                        len(validated_metrics.entities_list))
-                    await conn.execute('''
-                        UPDATE articles
-                        SET geodata = $1::jsonb
-                        WHERE article_id = $2 AND execution_id = $3
-                    ''', json.dumps(validated_metrics.locations_list), art_id, exec_id)
-                    for ent in validated_metrics.entities_list:
+                    try:
+                        validated_metrics = NewsMetrics(**found)
                         await conn.execute('''
-                            INSERT INTO dim_entities (article_id, execution_id, entity_text, entity_type)
-                            VALUES ($1, $2, $3, $4)
-                        ''', art_id, exec_id, ent.entity_text, ent.entity_type)
-                    logger.info(f"[retry] Recovered article {art_id} → locations={validated_metrics.locations_list}")
+                            UPDATE fact_news_metrics
+                            SET sentiment_score = $3, word_count = $4, entity_count = $5
+                            WHERE article_id = $1 AND execution_id = $2
+                        ''', art_id, exec_id, validated_metrics.sentiment_score,
+                            len((single_map.get(art_id, {}).get('text') or '').split()),
+                            len(validated_metrics.entities_list))
+                        await conn.execute('''
+                            UPDATE articles
+                            SET geodata = $1::jsonb
+                            WHERE article_id = $2 AND execution_id = $3
+                        ''', json.dumps(validated_metrics.locations_list), art_id, exec_id)
+                        for ent in validated_metrics.entities_list:
+                            await conn.execute('''
+                                INSERT INTO dim_entities (article_id, execution_id, entity_text, entity_type)
+                                VALUES ($1, $2, $3, $4)
+                            ''', art_id, exec_id, ent.entity_text, ent.entity_type)
+                        logger.info(f"[retry] Recovered article {art_id} → locations={validated_metrics.locations_list}")
+                    except ValidationError as val_err:
+                        logger.error(f"[retry] Validation error in single-article retry for {art_id}: {val_err}")
+                        await _send_to_dlq(conn, art_id, exec_id, json.dumps(found), str(val_err))
                 else:
                     # LLM responded but still missed the article in the retry — send to DLQ
                     await _send_to_dlq(conn, art_id, exec_id, retry_raw, 'LLM missed article in single-article retry')
