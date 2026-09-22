@@ -864,6 +864,10 @@
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="techPromptEngTitle">Extracción JSON Estricta:</strong>
                             <span class="text-on-surface-variant text-body-lg" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</span>
                         </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techBatchRetryTitle">Procesamiento por Lotes y Reintento Resiliente:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techBatchRetryDesc">Las inferencias se agrupan en batches (lotes de 5 noticias). Si el LLM omite silenciosamente artículos en su respuesta JSON, el sistema ejecuta de forma automática un <em>reintento individualizado</em> (batch unitario) para recuperar y mapear cada noticia faltante antes de persistir cualquier incidencia en la tabla DLQ (<code>dlq_news_metrics</code>).</span>
+                        </div>
                     </div>
                 </section>
                 
@@ -1164,7 +1168,7 @@ docker-compose up -d --build</code></pre>
                     <div class="mt-lg flex flex-col gap-sm">
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="userExportTitle">Exportar Datos:</strong>
-                            <span class="text-on-surface-variant text-body-lg" data-i18n="userExportDesc">Arriba a la derecha de la plataforma encontrarás el botón de exportación. Este compilará todas las métricas, entidades detectadas y links a los artículos en un archivo de Excel para descarga, facilitando tu trabajo en herramientas como PowerBI.</span>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="userExportDesc">Arriba a la derecha de la plataforma encontrarás el botón de exportación. Este genera un paquete ZIP que incluye el libro de Excel con formato profesional (hoja Data con autoajuste de columnas y hoja Metadata con KPIs de la búsqueda), además de las capturas en alta resolución del mapa limpio y de las gráficas analíticas (fuentes, estados y evolución temporal).</span>
                         </div>
                         <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="userLangTitle">Selector de Idioma:</strong>

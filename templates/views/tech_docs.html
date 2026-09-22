@@ -254,6 +254,10 @@
                             <strong class="text-on-background block mb-1 font-title-md" data-i18n="techPromptEngTitle">Extracción JSON Estricta:</strong>
                             <span class="text-on-surface-variant text-body-lg" data-i18n="techSec4Body">El sistema emplea <em>Prompt Engineering</em> estricto para forzar la salida de JSON validable. Los esquemas <code>Pydantic</code> dictan el contrato de datos esperado. Instrucciones específicas fuerzan al modelo a limpiar variaciones lingüísticas y jerga (como "Edomex") hacia vectores estandarizados ("Estado de México"), garantizando uniones (joins) relacionales precisas en la fase de mapeo geográfico.</span>
                         </div>
+                        <div class="bg-surface-container-low p-md rounded-xl border border-surface-variant/30">
+                            <strong class="text-on-background block mb-1 font-title-md" data-i18n="techBatchRetryTitle">Procesamiento por Lotes y Reintento Resiliente:</strong>
+                            <span class="text-on-surface-variant text-body-lg" data-i18n="techBatchRetryDesc">Las inferencias se agrupan en batches (lotes de 5 noticias). Si el LLM omite silenciosamente artículos en su respuesta JSON, el sistema ejecuta de forma automática un <em>reintento individualizado</em> (batch unitario) para recuperar y mapear cada noticia faltante antes de persistir cualquier incidencia en la tabla DLQ (<code>dlq_news_metrics</code>).</span>
+                        </div>
                     </div>
                 </section>
                 
