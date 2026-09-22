@@ -841,8 +841,8 @@ class OrchestratorAgent:
                             r_url = a.get("real_url") or a.get("url") or ""
                             article_id = hashlib.md5(r_url.encode("utf-8")).hexdigest()
                             raw_img = a.get("image_url") or a.get("image") or ""
-                            # Store up to 800 chars of the text for Chatbot context
-                            snippet = a.get("scraped_text", "")[:800]
+                            # Store up to 3000 chars of the text for Chatbot context
+                            snippet = a.get("scraped_text", "")[:3000]
                             await conn.execute(
                                 """
                                 INSERT INTO articles (article_id, execution_id, title, url, date, source, geodata, image_url, content_snippet) 
