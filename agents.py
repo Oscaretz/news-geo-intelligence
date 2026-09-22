@@ -67,45 +67,44 @@ logger = logging.getLogger(__name__)
 def extract_image_url(html: str, base_url: str = "") -> str:
     try:
         import urllib.parse
-        import re
         soup = BeautifulSoup(html, 'html.parser')
-        
-        # Palabras negras que gritan "soy un logo / icono de share"
-        bad_words = re.compile(r'(logo|icon|avatar|advertisement|facebook|twitter|share|banner|default|placeholder)', re.I)
-        
-        def is_valid_image(u: str) -> bool:
-            if not u: return False
-            return not bool(bad_words.search(u.lower()))
-            
+
         candidates = []
-        
+
         og_img = soup.find('meta', property='og:image')
         if og_img and og_img.get('content'):
             candidates.append(og_img.get('content').strip())
-            
-        tw_img = soup.find('meta', name='twitter:image')
+
+        # 'name' is a reserved kwarg in BeautifulSoup.find() — must use attrs={}
+        tw_img = soup.find('meta', attrs={'name': 'twitter:image'})
         if tw_img and tw_img.get('content'):
             candidates.append(tw_img.get('content').strip())
-            
-        link_img = soup.find('link', rel='image_src')
+
+        link_img = soup.find('link', attrs={'rel': 'image_src'})
         if link_img and link_img.get('href'):
             candidates.append(link_img.get('href').strip())
-            
+
         for img in soup.find_all('img'):
             src = img.get('src')
             if src and not src.startswith('data:'):
                 candidates.append(src.strip())
-                
+
+        bad_words = ('logo', 'icon', 'avatar', 'advertisement', 'facebook', 'twitter', 'share', 'banner', 'placeholder')
+
         for src in candidates:
-            if is_valid_image(src):
-                # Arreglar relativas usando urljoin
-                if base_url and not src.startswith('http') and not src.startswith('//'):
-                    src = urllib.parse.urljoin(base_url, src)
-                if src.startswith('//'):
-                    src = "https:" + src
-                if src.startswith('http'):
-                    return src
-                    
+            if not src:
+                continue
+            src_lower = src.lower()
+            if any(w in src_lower for w in bad_words):
+                continue
+            # Resolve relative URLs
+            if base_url and not src.startswith('http') and not src.startswith('//'):
+                src = urllib.parse.urljoin(base_url, src)
+            if src.startswith('//'):
+                src = 'https:' + src
+            if src.startswith('http'):
+                return src
+
     except Exception:
         pass
     return ""
